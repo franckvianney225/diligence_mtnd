@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { AuthError } from "@supabase/supabase-js";
 
 interface CreateUserModalProps {
@@ -12,9 +12,19 @@ interface CreateUserModalProps {
     phone: string;
     role: string;
   }) => Promise<void>;
+  editingUser?: {
+    id: string;
+    email?: string;
+    user_metadata?: {
+      full_name?: string;
+      phone?: string;
+      role?: string;
+    };
+  };
+  isEditing?: boolean;
 }
 
-export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUserModalProps) {
+export default function CreateUserModal({ isOpen, onClose, onCreate, editingUser, isEditing = false }: CreateUserModalProps) {
   const [userData, setUserData] = useState({
     full_name: "",
     email: "",
@@ -22,6 +32,19 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
     role: "Utilisateur",
     password: ""
   });
+
+  // Réinitialiser les données lorsque le modal s'ouvre/ferme ou que l'utilisateur à éditer change
+  useEffect(() => {
+    if (isOpen) {
+      setUserData({
+        full_name: editingUser?.user_metadata?.full_name || "",
+        email: editingUser?.email || "",
+        phone: editingUser?.user_metadata?.phone || "",
+        role: editingUser?.user_metadata?.role || "Utilisateur",
+        password: "" // Touvider le mot de passe pour l'édition
+      });
+    }
+  }, [isOpen, editingUser]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,10 +74,15 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-md flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md border border-gray-200">
+    <div
+      className="fixed inset-0 bg-white/20 backdrop-blur-md flex items-center justify-center p-4 z-50"
+      onClick={onClose}
+    >
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-white/30" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-6 text-gray-800">👤 Créer un nouvel utilisateur</h2>
+          <h2 className="text-xl font-semibold mb-6 text-gray-800">
+            👤 {isEditing ? 'Modifier l\'utilisateur' : 'Créer un nouvel utilisateur'}
+          </h2>
           
           {error && (
             <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">
@@ -96,12 +124,18 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
                 </label>
                 <input
                   type="password"
-                  required
+                  required={!isEditing}
                   minLength={6}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors text-gray-900"
                   value={userData.password}
                   onChange={(e) => setUserData({...userData, password: e.target.value})}
+                  placeholder={isEditing ? "Laisser vide pour ne pas modifier" : ""}
                 />
+                {isEditing && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Laisser vide pour ne pas modifier le mot de passe
+                  </p>
+                )}
               </div>
 
               <div>
@@ -145,7 +179,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
                 disabled={loading}
               >
-                {loading ? "Création..." : "Créer"}
+                {loading ? (isEditing ? "Modification..." : "Création...") : (isEditing ? "Modifier" : "Créer")}
               </button>
             </div>
           </form>

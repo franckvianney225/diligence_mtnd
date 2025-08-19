@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import CreateUserModal from "./CreateUserModal";
 import type { AuthError } from "@supabase/supabase-js";
+import DeleteModal from "../DeleteModal";
 
 interface User {
   id: string;
@@ -30,9 +31,12 @@ export default function UtilisateursTab() {
   );
   const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -49,15 +53,29 @@ export default function UtilisateursTab() {
     fetchUsers();
   }, []);
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) return;
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
     
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(userToDelete.id);
     if (error) {
       console.error('Error deleting user:', error);
+      setError("Erreur lors de la suppression de l'utilisateur");
       return;
     }
+    setSuccess("Utilisateur supprimé avec succès");
     fetchUsers();
+    setDeleteModalOpen(false);
+    setUserToDelete(null);
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setIsModalOpen(true);
   };
 
   const handleCreateUser = async (userData: {
@@ -142,9 +160,14 @@ export default function UtilisateursTab() {
                       <span className="bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs border border-green-200">Actif</span>
                     </td>
                     <td className="p-3">
-                      <button className="text-orange-600 hover:text-orange-800 mr-2 transition-colors">✏️</button>
                       <button
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => handleEditUser(user)}
+                        className="text-orange-600 hover:text-orange-800 mr-2 transition-colors"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(user)}
                         className="text-red-600 hover:text-red-800 transition-colors"
                       >
                         🗑️
@@ -160,8 +183,24 @@ export default function UtilisateursTab() {
 
       <CreateUserModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingUser(null);
+        }}
         onCreate={handleCreateUser}
+        editingUser={editingUser || undefined}
+        isEditing={!!editingUser}
+      />
+
+      <DeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={handleDeleteUser}
+        itemName={userToDelete?.user_metadata?.full_name || userToDelete?.email || "cet utilisateur"}
+        itemType="utilisateur"
       />
     </>
   );
