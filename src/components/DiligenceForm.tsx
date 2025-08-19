@@ -1,0 +1,257 @@
+"use client"
+
+import { useState, useEffect } from 'react';
+
+interface DiligenceFormProps {
+  onClose: () => void;
+  onSubmit: (formData: any) => void;
+  initialData?: any;
+}
+
+export default function DiligenceForm({ onClose, onSubmit, initialData }: DiligenceFormProps) {
+  const [formData, setFormData] = useState({
+    titre: '',
+    directionDestinataire: '',
+    dateDebut: '',
+    dateFin: '',
+    description: '',
+    priorite: 'Moyenne',
+    statut: 'Planifié',
+    destinataire: '',
+    piecesJointes: [] as File[]
+  });
+
+  // Remplir le formulaire si on modifie une diligence existante
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        titre: initialData.titre || '',
+        directionDestinataire: initialData.directionDestinataire || '',
+        dateDebut: initialData.dateDebut || '',
+        dateFin: initialData.dateFin || '',
+        description: initialData.description || '',
+        priorite: initialData.priorite || 'Moyenne',
+        statut: initialData.statut || 'Planifié',
+        destinataire: initialData.destinataire || '',
+        piecesJointes: initialData.piecesJointes || []
+      });
+    }
+  }, [initialData]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Créer un FormData pour inclure les fichiers
+    const formDataWithFiles = new FormData();
+    Object.entries(formData).forEach(([key, value]) => {
+      if (key !== 'piecesJointes') {
+        formDataWithFiles.append(key, value as string);
+      }
+    });
+    
+    // Ajouter chaque pièce jointe
+    formData.piecesJointes.forEach((file, index) => {
+      formDataWithFiles.append(`piecesJointes_${index}`, file);
+    });
+    
+    onSubmit(formDataWithFiles);
+  };
+
+  const isEditing = !!initialData;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-white/20 backdrop-blur-md flex items-center justify-center p-4 z-50" 
+      onClick={onClose}
+    >
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-white/30" onClick={(e) => e.stopPropagation()}>
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {isEditing ? '✏️ Modifier la Diligence' : '📋 Nouvelle Diligence'}
+            </h2>
+            <button 
+              onClick={onClose} 
+              className="text-gray-400 hover:text-gray-600 text-2xl font-bold transition-colors hover:bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"
+            >
+              ×
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Titre de la diligence</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                  value={formData.titre}
+                  onChange={(e) => setFormData({...formData, titre: e.target.value})}
+                  placeholder="Ex: Audit financier ministère"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Direction du destinataire</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                  value={formData.directionDestinataire}
+                  onChange={(e) => setFormData({...formData, directionDestinataire: e.target.value})}
+                  placeholder="Ex: Direction des Finances"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Destinataire</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                  value={formData.destinataire}
+                  onChange={(e) => setFormData({...formData, destinataire: e.target.value})}
+                  placeholder="Ex: M. Adama Bamba"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Priorité</label>
+                <select
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                  value={formData.priorite}
+                  onChange={(e) => setFormData({...formData, priorite: e.target.value})}
+                >
+                  <option value="Haute">🔴 Haute</option>
+                  <option value="Moyenne">🟡 Moyenne</option>
+                  <option value="Basse">🟢 Basse</option>
+                </select>
+              </div>
+
+              {isEditing && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                  <select
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                    value={formData.statut}
+                    onChange={(e) => setFormData({...formData, statut: e.target.value})}
+                  >
+                    <option value="Planifié">📅 Planifié</option>
+                    <option value="En cours">🔄 En cours</option>
+                    <option value="Terminé">✅ Terminé</option>
+                    <option value="En retard">⚠️ En retard</option>
+                  </select>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date de début</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                  value={formData.dateDebut}
+                  onChange={(e) => setFormData({...formData, dateDebut: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date de fin prévue</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                  value={formData.dateFin}
+                  onChange={(e) => setFormData({...formData, dateFin: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description détaillée</label>
+              <textarea
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
+                rows={4}
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder="Décrivez les objectifs et le périmètre de cette diligence..."
+                required
+              />
+            </div>
+
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700">Pièces jointes (PDF)</label>
+              <div className="flex flex-col space-y-2">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const newFiles = Array.from(e.target.files);
+                      setFormData({
+                        ...formData,
+                        piecesJointes: [...formData.piecesJointes, ...newFiles]
+                      });
+                    }
+                  }}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg border border-gray-300 transition-colors text-center"
+                >
+                  📄 Ajouter des fichiers PDF
+                </label>
+                
+                {formData.piecesJointes.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {formData.piecesJointes.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <span className="text-sm text-gray-700 truncate max-w-xs">
+                          {file.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedFiles = [...formData.piecesJointes];
+                            updatedFiles.splice(index, 1);
+                            setFormData({
+                              ...formData,
+                              piecesJointes: updatedFiles
+                            });
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg hover:shadow-xl"
+              >
+                {isEditing ? 'Modifier la Diligence' : 'Créer la Diligence'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

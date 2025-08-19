@@ -1,0 +1,168 @@
+"use client";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+import CreateUserModal from "./CreateUserModal";
+import type { AuthError } from "@supabase/supabase-js";
+
+interface User {
+  id: string;
+  email?: string;
+  user_metadata?: {
+    full_name?: string;
+    phone?: string;
+    role?: string;
+  };
+}
+
+export default function UtilisateursTab() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error('Supabase configuration is missing');
+  }
+  
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  const [users, setUsers] = useState<User[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) throw new Error('Failed to fetch users');
+      const users = await res.json();
+      setUsers(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) return;
+    
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (error) {
+      console.error('Error deleting user:', error);
+      return;
+    }
+    fetchUsers();
+  };
+
+  const handleCreateUser = async (userData: {
+    email: string;
+    password: string;
+    full_name: string;
+    phone: string;
+    role: string;
+  }) => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            full_name: userData.full_name,
+            phone: userData.phone,
+            role: userData.role
+          }
+        }
+      });
+
+      if (signUpError) throw signUpError;
+      setSuccess("Utilisateur créé avec succès");
+      fetchUsers();
+    } catch (error: unknown) {
+      const authError = error as AuthError;
+      setError(authError.message || "Erreur lors de la création de l'utilisateur");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-800">👥 Gestion des utilisateurs</h2>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            Nouvel utilisateur
+          </button>
+        </div>
+
+        {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg">{error}</div>}
+        {success && <div className="p-3 bg-green-50 text-green-700 rounded-lg">{success}</div>}
+
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <h2 className="text-xl font-semibold mb-6 text-gray-800">📋 Liste des utilisateurs</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left p-3 font-semibold text-gray-700">Nom</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Email</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Rôle</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Statut</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <td className="p-3 text-gray-900">{user.user_metadata?.full_name || 'N/A'}</td>
+                    <td className="p-3 text-gray-900">{user.email}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded-full text-xs border ${
+                        user.user_metadata?.role === 'Administrateur'
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {user.user_metadata?.role || 'Utilisateur'}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className="bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs border border-green-200">Actif</span>
+                    </td>
+                    <td className="p-3">
+                      <button className="text-orange-600 hover:text-orange-800 mr-2 transition-colors">✏️</button>
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-red-600 hover:text-red-800 transition-colors"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <CreateUserModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreate={handleCreateUser}
+      />
+    </>
+  );
+}
