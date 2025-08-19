@@ -66,7 +66,22 @@ export default function ParametresPage() {
         {/* Navigation par onglets */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-2 p-1 bg-white rounded-lg border border-gray-200 shadow-sm">
-            {tabs.map((tab) => (
+            {tabs
+              .filter(tab => {
+                // Debug: afficher le rôle détecté
+                console.log('User role detected:', userRole);
+                console.log('Tab being filtered:', tab.id);
+                
+                // Les utilisateurs "Utilisateur" ou "user" ne voient que l'onglet Profil
+                const normalizedRole = userRole?.toLowerCase();
+                if ((normalizedRole?.includes('user') || normalizedRole?.includes('utilisateur')) && tab.id !== 'profil') {
+                  console.log('Hiding tab for user:', tab.id);
+                  return false;
+                }
+                console.log('Showing tab:', tab.id);
+                return true;
+              })
+              .map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -86,8 +101,10 @@ export default function ParametresPage() {
         {/* Contenu des onglets */}
         <div className="space-y-6">
           {activeTab === 'profil' && <ProfilTab />}
+          
+          {/* Les autres onglets sont réservés aux admins seulement */}
           {activeTab === 'utilisateurs' && (
-            <ProtectedTab allowedRoles={['admin', 'user']} bypassCheck={false}>
+            <ProtectedTab allowedRoles={['admin']}>
               <UtilisateursTab />
             </ProtectedTab>
           )}
