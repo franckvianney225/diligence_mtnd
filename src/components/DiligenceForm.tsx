@@ -2,10 +2,22 @@
 
 import { useState, useEffect } from 'react';
 
+interface DiligenceData {
+  titre: string;
+  directionDestinataire: string;
+  dateDebut: string;
+  dateFin: string;
+  description: string;
+  priorite: string;
+  statut: string;
+  destinataire: string | null;
+  piecesJointes: string[];
+}
+
 interface DiligenceFormProps {
   onClose: () => void;
-  onSubmit: (formData: any) => void;
-  initialData?: any;
+  onSubmit: (formData: DiligenceData & { piecesJointesFiles: File[] }) => void;
+  initialData?: Partial<DiligenceData>;
 }
 
 export default function DiligenceForm({ onClose, onSubmit, initialData }: DiligenceFormProps) {
@@ -17,9 +29,10 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
     description: '',
     priorite: 'Moyenne',
     statut: 'Planifié',
-    destinataire: '',
-    piecesJointes: [] as File[]
+    destinataire: null as string | null,
+    piecesJointes: [] as string[]
   });
+  const [piecesJointesFiles, setPiecesJointesFiles] = useState<File[]>([]);
 
   // Remplir le formulaire si on modifie une diligence existante
   useEffect(() => {
@@ -32,7 +45,7 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
         description: initialData.description || '',
         priorite: initialData.priorite || 'Moyenne',
         statut: initialData.statut || 'Planifié',
-        destinataire: initialData.destinataire || '',
+        destinataire: initialData.destinataire || null,
         piecesJointes: initialData.piecesJointes || []
       });
     }
@@ -41,20 +54,14 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Créer un FormData pour inclure les fichiers
-    const formDataWithFiles = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key !== 'piecesJointes') {
-        formDataWithFiles.append(key, value as string);
-      }
-    });
+    // Créer un objet avec les données du formulaire
+    const diligenceData = {
+      ...formData,
+      piecesJointes: formData.piecesJointes, // Noms des fichiers
+      piecesJointesFiles: piecesJointesFiles // Objets File pour l'upload
+    };
     
-    // Ajouter chaque pièce jointe
-    formData.piecesJointes.forEach((file, index) => {
-      formDataWithFiles.append(`piecesJointes_${index}`, file);
-    });
-    
-    onSubmit(formDataWithFiles);
+    onSubmit(diligenceData);
   };
 
   const isEditing = !!initialData;
@@ -106,14 +113,18 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Destinataire</label>
-                <input
-                  type="text"
+                <select
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors bg-white/80"
-                  value={formData.destinataire}
-                  onChange={(e) => setFormData({...formData, destinataire: e.target.value})}
-                  placeholder="Ex: M. Adama Bamba"
+                  value={formData.destinataire || ''}
+                  onChange={(e) => setFormData({...formData, destinataire: e.target.value || null})}
                   required
-                />
+                >
+                  <option value="">Sélectionner un destinataire</option>
+                  {/* Les options seront chargées dynamiquement depuis la base de données */}
+                  <option value="uuid-profile-1">M. Adama Bamba</option>
+                  <option value="uuid-profile-2">Mme Aminata Diarra</option>
+                  <option value="uuid-profile-3">Dr. Souleymane Koné</option>
+                </select>
               </div>
 
               <div>
@@ -190,9 +201,10 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
                   onChange={(e) => {
                     if (e.target.files) {
                       const newFiles = Array.from(e.target.files);
+                      setPiecesJointesFiles([...piecesJointesFiles, ...newFiles]);
                       setFormData({
                         ...formData,
-                        piecesJointes: [...formData.piecesJointes, ...newFiles]
+                        piecesJointes: [...formData.piecesJointes, ...newFiles.map(file => file.name)]
                       });
                     }
                   }}
@@ -208,19 +220,23 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
                 
                 {formData.piecesJointes.length > 0 && (
                   <div className="mt-2 space-y-2">
-                    {formData.piecesJointes.map((file, index) => (
+                    {formData.piecesJointes.map((fileName, index) => (
                       <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                         <span className="text-sm text-gray-700 truncate max-w-xs">
-                          {file.name}
+                          {fileName}
                         </span>
                         <button
                           type="button"
                           onClick={() => {
-                            const updatedFiles = [...formData.piecesJointes];
+                            const updatedFiles = [...piecesJointesFiles];
                             updatedFiles.splice(index, 1);
+                            setPiecesJointesFiles(updatedFiles);
+                            
+                            const updatedFileNames = [...formData.piecesJointes];
+                            updatedFileNames.splice(index, 1);
                             setFormData({
                               ...formData,
-                              piecesJointes: updatedFiles
+                              piecesJointes: updatedFileNames
                             });
                           }}
                           className="text-red-500 hover:text-red-700"

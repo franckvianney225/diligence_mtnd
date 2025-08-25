@@ -61,16 +61,41 @@ export default function UtilisateursTab() {
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(userToDelete.id);
-    if (error) {
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: userToDelete.id }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Erreur lors de la suppression';
+        // Cloner la réponse pour pouvoir lire le corps plusieurs fois
+        const responseClone = response.clone();
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          try {
+            errorMessage = await responseClone.text() || errorMessage;
+          } catch {
+            errorMessage = `Erreur ${response.status}: ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      setSuccess("Utilisateur supprimé avec succès");
+      fetchUsers();
+    } catch (error: any) {
       console.error('Error deleting user:', error);
-      setError("Erreur lors de la suppression de l'utilisateur");
-      return;
+      setError(error.message || "Erreur lors de la suppression de l'utilisateur");
+    } finally {
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
     }
-    setSuccess("Utilisateur supprimé avec succès");
-    fetchUsers();
-    setDeleteModalOpen(false);
-    setUserToDelete(null);
   };
 
   const handleEditUser = (user: User) => {

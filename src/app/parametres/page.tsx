@@ -13,7 +13,13 @@ import { supabase } from "@/lib/supabase/client";
 import ProtectedTab from "@/components/Parametres/ProtectedTab";
 
 export default function ParametresPage() {
-  const [activeTab, setActiveTab] = useState('profil');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Récupérer l'onglet actif depuis le localStorage s'il existe
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('parametresActiveTab') || 'profil';
+    }
+    return 'profil';
+  });
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,7 +27,15 @@ export default function ParametresPage() {
     const fetchUserRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       console.log('User metadata:', user?.user_metadata);
-      const role = user?.app_metadata?.role || user?.user_metadata?.role || 'user';
+      
+      // Détection du rôle avec priorité aux métadonnées, puis vérification de l'email
+      let role = user?.app_metadata?.role || user?.user_metadata?.role || 'user';
+      
+      // Si pas de rôle défini mais email contient "admin", considérer comme admin
+      if (role === 'user' && user?.email?.includes('admin')) {
+        role = 'admin';
+      }
+      
       console.log('Detected role:', role);
       setUserRole(role);
       setLoading(false);
@@ -29,16 +43,21 @@ export default function ParametresPage() {
     fetchUserRole();
   }, []);
 
-  const tabs = [
-    { id: 'profil', name: 'Profil', icon: '👤' },
-    { id: 'utilisateurs', name: 'Utilisateurs', icon: '👥' },
-    { id: 'smtp', name: 'SMTP/Email', icon: '📧' },
-    { id: 'securite', name: 'Sécurité', icon: '🔒' },
-    { id: 'application', name: 'Application', icon: '⚙️' },
-    { id: 'notifications', name: 'Notifications', icon: '🔔' },
-    { id: 'systeme', name: 'Système', icon: '🖥️' },
-    { id: 'sauvegarde', name: 'Sauvegarde', icon: '💾' },
-  ];
+  const isAdmin = userRole === 'admin' || userRole === 'Administrateur';
+  const tabs = isAdmin
+    ? [
+        { id: 'profil', name: 'Profil', icon: '👤' },
+        { id: 'utilisateurs', name: 'Utilisateurs', icon: '👥' },
+        { id: 'smtp', name: 'SMTP/Email', icon: '📧' },
+        { id: 'securite', name: 'Sécurité', icon: '🔒' },
+        { id: 'application', name: 'Application', icon: '⚙️' },
+        { id: 'notifications', name: 'Notifications', icon: '🔔' },
+        { id: 'systeme', name: 'Système', icon: '🖥️' },
+        { id: 'sauvegarde', name: 'Sauvegarde', icon: '💾' },
+      ]
+    : [
+        { id: 'profil', name: 'Profil', icon: '👤' }
+      ];
 
   if (loading) {
     return (
@@ -60,31 +79,22 @@ export default function ParametresPage() {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Paramètres
           </h1>
-          <p className="text-gray-600">Configuration et gestion de l'application</p>
+          <p className="text-gray-600">Configuration et gestion de l&apos;application</p>
         </div>
 
         {/* Navigation par onglets */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-2 p-1 bg-white rounded-lg border border-gray-200 shadow-sm">
-            {tabs
-              .filter(tab => {
-                // Debug: afficher le rôle détecté
-                console.log('User role detected:', userRole);
-                console.log('Tab being filtered:', tab.id);
-                
-                // Les utilisateurs "Utilisateur" ou "user" ne voient que l'onglet Profil
-                const normalizedRole = userRole?.toLowerCase();
-                if ((normalizedRole?.includes('user') || normalizedRole?.includes('utilisateur')) && tab.id !== 'profil') {
-                  console.log('Hiding tab for user:', tab.id);
-                  return false;
-                }
-                console.log('Showing tab:', tab.id);
-                return true;
-              })
-              .map((tab) => (
+            {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    // Sauvegarder l'onglet actif dans le localStorage
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('parametresActiveTab', tab.id);
+                    }
+                  }}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
                     activeTab === tab.id
                       ? 'bg-orange-100 text-orange-700'

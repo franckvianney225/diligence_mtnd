@@ -66,6 +66,13 @@ export default function Sidebar() {
 
   const isActive = (path: string) => pathname === path;
 
+  // Vérifier si l'utilisateur est un administrateur
+  const isAdmin = () => {
+    const userRole = user?.user_metadata?.role || '';
+    const normalizedRole = userRole.toString().trim().toLowerCase();
+    return normalizedRole.includes('admin') || normalizedRole.includes('administrateur');
+  };
+
   return (
     <div className="fixed left-0 top-0 w-56 h-screen bg-white flex flex-col shadow-lg border-r border-gray-200 z-40">
       {/* Header avec profil utilisateur */}
@@ -76,10 +83,10 @@ export default function Sidebar() {
           </div>
           <div>
             <h3 className="font-semibold text-gray-800 text-sm">
-              {user?.user_metadata?.full_name || 'Utilisateur'}
+              {user?.user_metadata?.full_name || user?.email || 'Utilisateur'}
             </h3>
             <p className="text-xs text-orange-600 font-medium">
-              ({user?.user_metadata?.role || 'Invité'})
+              ({user?.user_metadata?.role || (user ? (user.email?.includes('admin') ? 'Administrateur' : 'Connecté') : 'Invité')})
             </p>
           </div>
         </div>
@@ -104,21 +111,23 @@ export default function Sidebar() {
             </span>
           </Link>
           
-          <Link 
-            href="/diligence" 
-            className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-              isActive('/diligence') 
-                ? 'bg-orange-100 text-orange-700 border-l-4 border-orange-500' 
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-            }`}
-          >
-            <div>
-              <ClipboardIcon />
-            </div>
-            <span className="font-medium text-sm">
-              Diligence
-            </span>
-          </Link>
+          {!isAdmin() && (
+            <Link
+              href="/diligence"
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                isActive('/diligence')
+                  ? 'bg-orange-100 text-orange-700 border-l-4 border-orange-500'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+              }`}
+            >
+              <div>
+                <ClipboardIcon />
+              </div>
+              <span className="font-medium text-sm">
+                Diligence
+              </span>
+            </Link>
+          )}
         </nav>
       </div>
 

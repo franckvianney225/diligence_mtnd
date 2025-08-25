@@ -2,15 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 
-const adminProtectedRoutes = [
-  '/parametres/utilisateurs',
-  '/parametres/smtp',
-  '/parametres/securite',
-  '/parametres/application',
-  '/parametres/notifications',
-  '/parametres/systeme',
-  '/parametres/sauvegarde'
-]
+// Routes protégées par authentification (gérées par le composant ProtectedTab)
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
@@ -56,21 +48,11 @@ export async function middleware(request: NextRequest) {
     
     const userRole = user.user_metadata?.role || 'user'
     
-    // Vérifie les routes protégées admin
-    // Routes protégées admin
-    const strictAdminRoutes = ['/parametres/securite', '/parametres/systeme'];
-    if (strictAdminRoutes.some(route => request.nextUrl.pathname.startsWith(route))) {
-      if (userRole !== 'admin') {
-        return NextResponse.redirect(new URL('/parametres/profil', request.url))
-      }
-    }
+    // Le contrôle d'accès détaillé est géré par le composant ProtectedTab
+    // Le middleware se contente de vérifier l'authentification de base
     
-    // Route utilisateurs accessible à tous les connectés
-    if (request.nextUrl.pathname.startsWith('/parametres/utilisateurs')) {
-      if (!user) {
-        return NextResponse.redirect(new URL('/login', request.url))
-      }
-    }
+    // Route paramètres accessible à tous les connectés
+    // La vérification user est déjà faite plus haut, pas besoin de redondance
     
     return NextResponse.next()
   } catch (error) {

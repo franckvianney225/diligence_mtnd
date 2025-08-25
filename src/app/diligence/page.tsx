@@ -1,41 +1,63 @@
 "use client";
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import DiligenceForm from "@/components/DiligenceForm";
 import DeleteModal from "@/components/DeleteModal";
 import DetailsDiligence from "@/components/Diligence/DetailsDiligence";
+import { supabase } from "@/lib/supabase/client";
+import { uploadFile, deleteFiles, ensureBucketExists, getPublicFileUrl, BUCKET_NAME } from "@/lib/supabase/storage";
 
 interface Diligence {
-  id: number;
+  id: string;
   titre: string;
-  directionDestinataire: string;
-  date: string;
-  statut: string;
-  priorite: "Haute" | "Moyenne" | "Basse";
-  progression: number;
-  destinataire: string;
+  directiondestinataire: string;
+  datedebut: string;
+  datefin: string;
   description: string;
-  echeance: string;
-  documents: number;
-  commentaires: number;
-  dateDebut: string;
-  dateFin: string;
+  priorite: "Haute" | "Moyenne" | "Basse";
+  statut: "Planifié" | "En cours" | "Terminé" | "En retard";
+  destinataire: string | null;
+  piecesjointes: string[];
+  progression: number;
+  created_at: string;
+  updated_at: string;
 }
 
-type DiligenceInput = Omit<Diligence, 'id' | 'progression'> & {
-  progression?: number;
-};
+interface DiligenceFormData {
+  titre: string;
+  directionDestinataire: string;
+  dateDebut: string;
+  dateFin: string;
+  description: string;
+  priorite: string;
+  statut: string;
+  destinataire: string | null;
+  piecesJointes: string[];
+  piecesJointesFiles: File[];
+}
 
 export default function DiligencePage() {
-  const [viewMode, setViewMode] = useState('table');
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('diligenceViewMode') || 'table';
+    }
+    return 'table';
+  });
   const [showForm, setShowForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingDiligence, setEditingDiligence] = useState<Diligence | null>(null);
   const [diligenceToDelete, setDiligenceToDelete] = useState<Diligence | null>(null);
   const [selectedDiligence, setSelectedDiligence] = useState<Diligence | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(6);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('diligenceItemsPerPage');
+      return saved ? parseInt(saved) : 6;
+    }
+    return 6;
+  });
   const [filters, setFilters] = useState({
     search: '',
     statut: '',
@@ -43,137 +65,34 @@ export default function DiligencePage() {
     dateDebut: '',
     dateFin: ''
   });
+  const [allDiligences, setAllDiligences] = useState<Diligence[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [allDiligences, setAllDiligences] = useState([
-    {
-      id: 1,
-      titre: "Audit financier ministère",
-      directionDestinataire: "Ministère des Finances",
-      date: "15/01/2025",
-      statut: "En cours",
-      priorite: "Haute",
-      progression: 65,
-      destinataire: "Jean Kouassi",
-      description: "Audit complet des comptes du ministère pour l'exercice 2024",
-      echeance: "28/02/2025",
-      documents: 12,
-      commentaires: 8,
-      dateDebut: "2025-01-15",
-      dateFin: "2025-02-28"
-    },
-    {
-      id: 2,
-      titre: "Due diligence projet infrastructure",
-      directionDestinataire: "Ministère des Infrastructures",
-      date: "20/01/2025",
-      statut: "Planifié",
-      priorite: "Moyenne",
-      progression: 0,
-      destinataire: "Marie Traoré",
-      description: "Évaluation du projet de construction d'autoroutes",
-      echeance: "15/03/2025",
-      documents: 5,
-      commentaires: 2,
-      dateDebut: "2025-01-20",
-      dateFin: "2025-03-15"
-    },
-    {
-      id: 3,
-      titre: "Vérification légale contrats publics",
-      directionDestinataire: "Direction des Marchés Publics",
-      date: "10/01/2025",
-      statut: "Terminé",
-      priorite: "Basse",
-      progression: 100,
-      destinataire: "Amadou Diallo",
-      description: "Contrôle de conformité des contrats publics Q4 2024",
-      echeance: "25/01/2025",
-      documents: 25,
-      commentaires: 15,
-      dateDebut: "2025-01-10",
-      dateFin: "2025-01-25"
-    },
-    {
-      id: 4,
-      titre: "Audit sécurité informatique",
-      directionDestinataire: "Ministère de la Défense",
-      date: "05/01/2025",
-      statut: "En retard",
-      priorite: "Haute",
-      progression: 30,
-      destinataire: "Fatou Camara",
-      description: "Évaluation de la sécurité des systèmes informatiques",
-      echeance: "20/01/2025",
-      documents: 8,
-      commentaires: 12,
-      dateDebut: "2025-01-05",
-      dateFin: "2025-01-20"
-    },
-    {
-      id: 5,
-      titre: "Contrôle qualité projets publics",
-      directionDestinataire: "Direction des Projets",
-      date: "12/01/2025",
-      statut: "En cours",
-      priorite: "Moyenne",
-      progression: 45,
-      destinataire: "Koffi Assi",
-      description: "Évaluation de la qualité des projets en cours",
-      echeance: "30/03/2025",
-      documents: 15,
-      commentaires: 6,
-      dateDebut: "2025-01-12",
-      dateFin: "2025-03-30"
-    },
-    {
-      id: 6,
-      titre: "Audit environnemental",
-      directionDestinataire: "Ministère de l'Environnement",
-      date: "18/01/2025",
-      statut: "Planifié",
-      priorite: "Basse",
-      progression: 0,
-      destinataire: "Aya Brou",
-      description: "Évaluation de l'impact environnemental des projets",
-      echeance: "20/04/2025",
-      documents: 3,
-      commentaires: 1,
-      dateDebut: "2025-01-18",
-      dateFin: "2025-04-20"
-    },
-    {
-      id: 7,
-      titre: "Due diligence fusion entreprises",
-      directionDestinataire: "Ministère du Commerce",
-      date: "22/01/2025",
-      statut: "En cours",
-      priorite: "Haute",
-      progression: 80,
-      destinataire: "Sekou Ouattara",
-      description: "Analyse de la fusion de deux entreprises publiques",
-      echeance: "15/02/2025",
-      documents: 20,
-      commentaires: 18,
-      dateDebut: "2025-01-22",
-      dateFin: "2025-02-15"
-    },
-    {
-      id: 8,
-      titre: "Vérification budgétaire",
-      directionDestinataire: "Ministère du Budget",
-      date: "25/01/2025",
-      statut: "Planifié",
-      priorite: "Moyenne",
-      progression: 0,
-      destinataire: "Mariam Koné",
-      description: "Contrôle de l'exécution budgétaire 2024",
-      echeance: "10/03/2025",
-      documents: 7,
-      commentaires: 3,
-      dateDebut: "2025-01-25",
-      dateFin: "2025-03-10"
-    },
-  ]);
+  // Charger les diligences depuis Supabase
+  useEffect(() => {
+    loadDiligences();
+  }, []);
+
+  const loadDiligences = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('diligences')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setAllDiligences(data || []);
+    } catch (error) {
+      console.error('Erreur lors du chargement des diligences:', error);
+      alert('Erreur lors du chargement des données');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fonctions pour gérer les actions
   const handleCreateDiligence = () => {
@@ -191,53 +110,130 @@ export default function DiligencePage() {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (diligenceToDelete) {
-      setAllDiligences(prev => prev.filter(d => d.id !== diligenceToDelete.id));
-      setShowDeleteModal(false);
-      setDiligenceToDelete(null);
+      try {
+        // Supprimer uniquement la diligence de la base de données (ignorer les fichiers)
+        const { error } = await supabase
+          .from('diligences')
+          .delete()
+          .eq('id', diligenceToDelete.id);
+
+        if (error) {
+          throw error;
+        }
+
+        setAllDiligences(prev => prev.filter(d => d.id !== diligenceToDelete.id));
+        setShowDeleteModal(false);
+        setDiligenceToDelete(null);
+        alert('Diligence supprimée avec succès');
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+        alert(`Erreur lors de la suppression: ${errorMessage}`);
+      }
     }
   };
 
-  const handleFormSubmit = (formData: DiligenceInput) => {
-    if (editingDiligence) {
-      // Modification
-      setAllDiligences(prev => prev.map(d =>
-        d.id === editingDiligence.id
-          ? { ...d, ...formData, id: editingDiligence.id }
-          : d
-      ));
-    } else {
-      // Création
-      const newId = Math.max(0, ...allDiligences.map(d => d.id)) + 1;
-      const newDiligence: Diligence = {
-        id: newId,
-        progression: formData.progression || 0,
+  const handleFormSubmit = async (formData: DiligenceFormData) => {
+    try {
+      // Vérifier que le bucket existe
+      const bucketExists = await ensureBucketExists();
+      if (!bucketExists) {
+        alert('Le bucket de stockage n\'est pas configuré. Veuillez créer le bucket "diligences-files" dans Supabase Storage.');
+        return;
+      }
+
+      // Préparer les données pour Supabase
+      const diligenceData = {
         titre: formData.titre,
-        directionDestinataire: formData.directionDestinataire,
-        date: formData.date,
-        statut: formData.statut,
-        priorite: formData.priorite,
-        destinataire: formData.destinataire,
+        directiondestinataire: formData.directionDestinataire,
+        datedebut: formData.dateDebut,
+        datefin: formData.dateFin,
         description: formData.description,
-        echeance: formData.echeance,
-        documents: formData.documents,
-        commentaires: formData.commentaires,
-        dateDebut: formData.dateDebut,
-        dateFin: formData.dateFin
+        priorite: formData.priorite as "Haute" | "Moyenne" | "Basse",
+        statut: formData.statut as "Planifié" | "En cours" | "Terminé" | "En retard",
+        destinataire: formData.destinataire,
+        piecesjointes: [], // Initialiser comme tableau vide
+        progression: 0
       };
-      setAllDiligences(prev => [...prev, newDiligence]);
+
+      let diligenceId: string;
+
+      if (editingDiligence) {
+        // MODIFICATION - Mettre à jour la diligence
+        diligenceId = editingDiligence.id;
+        const { error } = await supabase
+          .from('diligences')
+          .update(diligenceData)
+          .eq('id', editingDiligence.id);
+
+        if (error) {
+          throw error;
+        }
+
+      } else {
+        // CRÉATION - Créer la diligence et récupérer l'ID
+        const { data, error } = await supabase
+          .from('diligences')
+          .insert(diligenceData)
+          .select('id')
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        diligenceId = data.id;
+      }
+
+      // Upload des fichiers joints si présents
+      if (formData.piecesJointesFiles && formData.piecesJointesFiles.length > 0) {
+        const uploadedFilePaths: string[] = [];
+        
+        for (const file of formData.piecesJointesFiles) {
+          try {
+            const filePath = await uploadFile(diligenceId, file);
+            uploadedFilePaths.push(filePath);
+          } catch (uploadError) {
+            console.error('Erreur lors de l\'upload du fichier:', uploadError);
+            // Continuer avec les autres fichiers même si un échoue
+          }
+        }
+
+        // Mettre à jour la diligence avec les chemins des fichiers uploadés
+        if (uploadedFilePaths.length > 0) {
+          const { error: updateError } = await supabase
+            .from('diligences')
+            .update({ piecesjointes: uploadedFilePaths })
+            .eq('id', diligenceId);
+
+          if (updateError) {
+            console.error('Erreur lors de la mise à jour des fichiers joints:', updateError);
+          }
+        }
+      }
+
+      // Recharger les diligences pour avoir les données à jour
+      await loadDiligences();
+
+      setShowForm(false);
+      setEditingDiligence(null);
+      alert(editingDiligence ? 'Diligence modifiée avec succès' : 'Diligence créée avec succès');
+
+    } catch (error) {
+      console.error('Erreur lors de la soumission:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      alert(`Erreur lors de l'enregistrement: ${errorMessage}`);
     }
-    setShowForm(false);
-    setEditingDiligence(null);
   };
 
   // Fonction de filtrage
   const filteredDiligences = allDiligences.filter(diligence => {
     const matchSearch = !filters.search || 
       diligence.titre.toLowerCase().includes(filters.search.toLowerCase()) ||
-      diligence.directionDestinataire.toLowerCase().includes(filters.search.toLowerCase()) ||
-      diligence.destinataire.toLowerCase().includes(filters.search.toLowerCase());
+      diligence.directiondestinataire.toLowerCase().includes(filters.search.toLowerCase()) ||
+      (diligence.destinataire && diligence.destinataire.toLowerCase().includes(filters.search.toLowerCase()));
     
     const matchStatut = !filters.statut || diligence.statut === filters.statut;
     const matchPriorite = !filters.priorite || diligence.priorite === filters.priorite;
@@ -293,6 +289,11 @@ export default function DiligencePage() {
     }
   };
 
+  // Formater la date pour l'affichage
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR');
+  };
+
   // Composant de pagination
   const Pagination = () => {
     const getPageNumbers = () => {
@@ -341,7 +342,9 @@ export default function DiligencePage() {
           <select
             value={itemsPerPage}
             onChange={(e) => {
-              setItemsPerPage(Number(e.target.value));
+              const newItemsPerPage = Number(e.target.value);
+              setItemsPerPage(newItemsPerPage);
+              localStorage.setItem('diligenceItemsPerPage', newItemsPerPage.toString());
               setCurrentPage(1);
             }}
             className="ml-4 border border-gray-300 rounded px-2 py-1 text-sm"
@@ -389,6 +392,20 @@ export default function DiligencePage() {
       </div>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="pl-64 p-8 min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Chargement des diligences...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -472,397 +489,200 @@ export default function DiligencePage() {
           </div>
           
           <div className="flex justify-between items-center">
-            <div className="flex space-x-2">
-              <button 
-                onClick={resetFilters}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Réinitialiser
-              </button>
-              <span className="text-sm text-gray-500 flex items-center">
-                {filteredDiligences.length} résultat(s) trouvé(s)
-              </span>
-            </div>
-            
+            <button
+              onClick={resetFilters}
+              className="text-orange-600 hover:text-orange-700 font-medium text-sm"
+            >
+              Réinitialiser les filtres
+            </button>
             <div className="flex items-center space-x-4">
-              <div className="flex space-x-2">
-                <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                  Exporter
-                </button>
-                <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                  Rapport
-                </button>
-              </div>
-              
-              {/* Toggle vue */}
-              <div className="flex bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setViewMode('table')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'table' 
-                      ? 'bg-white text-gray-700 shadow-sm' 
+                  onClick={() => {
+                    setViewMode('table');
+                    localStorage.setItem('diligenceViewMode', 'table');
+                  }}
+                  className={`p-2 rounded-lg ${
+                    viewMode === 'table'
+                      ? 'bg-orange-100 text-orange-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  📋 Liste
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
                 </button>
                 <button
-                  onClick={() => setViewMode('cards')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'cards' 
-                      ? 'bg-white text-gray-700 shadow-sm' 
+                  onClick={() => {
+                    setViewMode('grid');
+                    localStorage.setItem('diligenceViewMode', 'grid');
+                  }}
+                  className={`p-2 rounded-lg ${
+                    viewMode === 'grid'
+                      ? 'bg-orange-100 text-orange-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  🗂️ Cartes
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Vue Liste (Tableau) */}
-        {viewMode === 'table' && (
-          <>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="text-left p-4 font-semibold text-gray-700">Titre</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Direction du destinataire</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Destinataire</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Date</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Échéance</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Statut</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Priorité</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Progression</th>
-                      <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedDiligences.map((diligence) => (
-                      <tr key={diligence.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="p-4">
-                          <div>
-                            <div className="font-medium text-gray-900">{diligence.titre}</div>
-                            <div className="text-sm text-gray-500 truncate max-w-xs">{diligence.description}</div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-gray-700">{diligence.directionDestinataire}</td>
-                        <td className="p-4 text-gray-700">{diligence.destinataire}</td>
-                        <td className="p-4 text-gray-700">{diligence.date}</td>
-                        <td className="p-4 text-gray-700">{diligence.echeance}</td>
-                        <td className="p-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatutColor(diligence.statut)}`}>
-                            {diligence.statut}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPrioriteColor(diligence.priorite)}`}>
-                            {diligence.priorite}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${diligence.progression}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm font-medium text-gray-600">{diligence.progression}%</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => handleEditDiligence(diligence)}
-                              className="text-blue-600 hover:text-blue-800 transition-colors p-1 hover:bg-blue-50 rounded"
-                              title="Modifier"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                            <Link href={`/diligence/${diligence.id}`}>
-                              <button
-                                className="text-green-600 hover:text-green-800 transition-colors p-1 hover:bg-green-50 rounded"
-                                title="Voir détails"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                              </button>
-                            </Link>
-                            <button 
-                              onClick={() => handleDeleteDiligence(diligence)}
-                              className="text-red-600 hover:text-red-800 transition-colors p-1 hover:bg-red-50 rounded"
-                              title="Supprimer"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Message si aucun résultat */}
-              {paginatedDiligences.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  <div className="text-4xl mb-4">🔍</div>
-                  <h3 className="text-lg font-medium mb-2">Aucun résultat trouvé</h3>
-                  <p>Essayez de modifier vos critères de recherche</p>
-                </div>
-              )}
-            </div>
-            <Pagination />
-          </>
-        )}
-
-        {/* Vue Cartes */}
-        {viewMode === 'cards' && (
-          <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {paginatedDiligences.map((diligence) => (
-                <div key={diligence.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
-                  {/* Header de la carte */}
-                  <div className="bg-orange-50 border-b border-orange-100 p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-gray-800 mb-1">{diligence.titre}</h3>
-                        <p className="text-orange-600 text-sm">{diligence.directionDestinataire}</p>
+        {/* Table des diligences */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Titre
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Direction
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Dates
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Statut
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Priorité
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedDiligences.map((diligence) => (
+                  <tr key={diligence.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{diligence.titre}</div>
+                      <div className="text-sm text-gray-500">{diligence.destinataire || 'Non spécifié'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{diligence.directiondestinataire}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {formatDate(diligence.datedebut)} - {formatDate(diligence.datefin)}
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPrioriteColor(diligence.priorite)}`}>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatutColor(diligence.statut)}`}>
+                        {diligence.statut}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPrioriteColor(diligence.priorite)}`}>
                         {diligence.priorite}
                       </span>
-                    </div>
-                  </div>
-
-                  {/* Contenu de la carte */}
-                  <div className="p-4">
-                    <div className="mb-4">
-                      <p className="text-gray-600 text-sm mb-3">{diligence.description}</p>
-                      
-                      {/* Barre de progression */}
-                      <div className="mb-3">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium text-gray-700">Progression</span>
-                          <span className="text-orange-600 font-medium">{diligence.progression}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${diligence.progression}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      {/* Statut */}
-                      <div className="flex justify-center mb-4">
-                        <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatutColor(diligence.statut)}`}>
-                          {diligence.statut}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Informations détaillées */}
-                    <div className="space-y-2 text-sm mb-4">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Destinataire:</span>
-                        <span className="font-medium text-gray-700">{diligence.destinataire}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Échéance:</span>
-                        <span className="font-medium text-orange-600">{diligence.echeance}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Documents:</span>
-                        <span className="font-medium text-gray-700">{diligence.documents}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Commentaires:</span>
-                        <span className="font-medium text-gray-700">{diligence.commentaires}</span>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => handleEditDiligence(diligence)}
-                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Modifier
-                      </button>
-                      <Link href={`/diligence/${diligence.id}`}>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
                         <button
-                          className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                          onClick={() => setSelectedDiligence(diligence)}
+                          className="text-blue-600 hover:text-blue-900"
                         >
-                          Détails
+                          Voir
                         </button>
-                      </Link>
-                      <button 
-                        onClick={() => handleDeleteDiligence(diligence)}
-                        className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                        <button
+                          onClick={() => handleEditDiligence(diligence)}
+                          className="text-orange-600 hover:text-orange-900"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDiligence(diligence)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {totalItems === 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center border border-gray-200 mt-6">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune diligence</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Commencez par créer votre première diligence.
+            </p>
+            <div className="mt-6">
+              <button
+                onClick={handleCreateDiligence}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Créer une diligence
+              </button>
             </div>
-            
-            {/* Message si aucun résultat en mode cartes */}
-            {paginatedDiligences.length === 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center text-gray-500">
-                <div className="text-4xl mb-4">🔍</div>
-                <h3 className="text-lg font-medium mb-2">Aucun résultat trouvé</h3>
-                <p>Essayez de modifier vos critères de recherche</p>
-              </div>
-            )}
-            <Pagination />
-          </>
+          </div>
         )}
 
-        {/* Statistiques en bas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-gray-500 text-sm font-medium">En cours</h3>
-                <p className="text-3xl font-bold mt-2 text-blue-600">
-                  {allDiligences.filter(d => d.statut === 'En cours').length}
-                </p>
-              </div>
-              <div className="text-4xl opacity-60">🔄</div>
-            </div>
-          </div>
+        {totalItems > 0 && <Pagination />}
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-gray-500 text-sm font-medium">Terminées</h3>
-                <p className="text-3xl font-bold mt-2 text-green-600">
-                  {allDiligences.filter(d => d.statut === 'Terminé').length}
-                </p>
-              </div>
-              <div className="text-4xl opacity-60">✅</div>
-            </div>
-          </div>
+        {/* Modals */}
+        {showForm && (
+          <DiligenceForm
+            initialData={editingDiligence ? {
+              titre: editingDiligence.titre,
+              directionDestinataire: editingDiligence.directiondestinataire,
+              dateDebut: editingDiligence.datedebut,
+              dateFin: editingDiligence.datefin,
+              description: editingDiligence.description,
+              priorite: editingDiligence.priorite,
+              statut: editingDiligence.statut,
+              destinataire: editingDiligence.destinataire,
+              piecesJointes: editingDiligence.piecesjointes
+            } : undefined}
+            onClose={() => {
+              setShowForm(false);
+              setEditingDiligence(null);
+            }}
+            onSubmit={handleFormSubmit}
+          />
+        )}
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-gray-500 text-sm font-medium">Planifiées</h3>
-                <p className="text-3xl font-bold mt-2 text-orange-600">
-                  {allDiligences.filter(d => d.statut === 'Planifié').length}
-                </p>
-              </div>
-              <div className="text-4xl opacity-60">📅</div>
-            </div>
-          </div>
+        {showDeleteModal && (
+          <DeleteModal
+            isOpen={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={confirmDelete}
+            itemName={diligenceToDelete?.titre || ''}
+            itemType="diligence"
+          />
+        )}
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-gray-500 text-sm font-medium">En retard</h3>
-                <p className="text-3xl font-bold mt-2 text-red-600">
-                  {allDiligences.filter(d => d.statut === 'En retard').length}
-                </p>
-              </div>
-              <div className="text-4xl opacity-60">⚠️</div>
-            </div>
-          </div>
-        </div>
+        {selectedDiligence && (
+          <DetailsDiligence
+            id={selectedDiligence.id}
+            title={selectedDiligence.titre}
+            description={selectedDiligence.description}
+            date={formatDate(selectedDiligence.created_at)}
+            status={selectedDiligence.statut.toLowerCase().replace(' ', '_') as "en_cours" | "termine" | "en_attente" | "en_retard"}
+            directionDestinataire={selectedDiligence.directiondestinataire}
+            destinataire={selectedDiligence.destinataire || 'Non spécifié'}
+            echeance={formatDate(selectedDiligence.datefin)}
+            documents={selectedDiligence.piecesjointes.length}
+            commentaires={0}
+            priorite={selectedDiligence.priorite}
+            progression={selectedDiligence.progression}
+          />
+        )}
       </div>
-
-      {/* Modal du formulaire avec effet blur */}
-      {showForm && (
-        <DiligenceForm 
-          onClose={() => {
-            setShowForm(false);
-            setEditingDiligence(null);
-          }}
-          onSubmit={handleFormSubmit}
-          initialData={editingDiligence}
-        />
-      )}
-
-      {/* Modal de suppression */}
-      {showDeleteModal && diligenceToDelete && (
-        <DeleteModal
-          isOpen={showDeleteModal}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setDiligenceToDelete(null);
-          }}
-          onConfirm={confirmDelete}
-          itemName={diligenceToDelete.titre}
-          itemType="diligence"
-        />
-      )}
-
-      {/* Modal des détails */}
-      {selectedDiligence && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Détails de la diligence</h2>
-                <button
-                  onClick={() => setSelectedDiligence(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              <DetailsDiligence
-                id={selectedDiligence.id.toString()}
-                title={selectedDiligence.titre}
-                description={selectedDiligence.description}
-                date={selectedDiligence.date}
-                status={
-                  selectedDiligence.statut === "Terminé" ? "termine" :
-                  selectedDiligence.statut === "En cours" ? "en_cours" :
-                  selectedDiligence.statut === "En retard" ? "en_retard" : "en_attente"
-                }
-                directionDestinataire={selectedDiligence.directionDestinataire}
-                destinataire={selectedDiligence.destinataire}
-                echeance={selectedDiligence.echeance}
-                documents={selectedDiligence.documents}
-                commentaires={selectedDiligence.commentaires}
-                priorite={selectedDiligence.priorite}
-                progression={selectedDiligence.progression}
-              />
-              <div className="mt-6 grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium text-gray-700">Direction destinataire</h3>
-                  <p className="text-gray-900">{selectedDiligence.directionDestinataire}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-700">Destinataire</h3>
-                  <p className="text-gray-900">{selectedDiligence.destinataire}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-700">Échéance</h3>
-                  <p className="text-gray-900">{selectedDiligence.echeance}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-700">Documents</h3>
-                  <p className="text-gray-900">{selectedDiligence.documents}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
