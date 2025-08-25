@@ -123,6 +123,14 @@ class ApiClient {
   async getCurrentUser() {
     return this.request('/auth/me');
   }
+
+  // Mettre à jour le profil utilisateur
+  async updateProfile(profileData) {
+    return this.request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+  }
 }
 
 // Instance singleton

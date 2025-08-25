@@ -87,10 +87,22 @@ VALUES ('user@example.com', '$2a$10$tHlMPEGKKoYhcYxORYsqOOOA6WP1GYY9WJCPCHML9I/L
 INSERT OR IGNORE INTO smtp_config (host, port, secure, username, password, from_email, from_name)
 VALUES ('smtp.gmail.com', 587, 1, 'your-email@gmail.com', 'your-app-password', 'noreply@example.com', 'Système de Diligence');
 
+-- Table des profils utilisateurs
+CREATE TABLE IF NOT EXISTS profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL UNIQUE,
+    phone TEXT,
+    poste TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Ajouter la colonne phone à la table users si elle n'existe pas
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
 
 -- Création des index pour améliorer les performances
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_diligences_status ON diligences(status);
 CREATE INDEX IF NOT EXISTS idx_diligences_assigned ON diligences(assigned_to);

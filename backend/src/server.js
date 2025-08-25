@@ -317,7 +317,10 @@ app.post('/api/auth/login', async (req, res) => {
     try {
       const database = await getDatabase();
       const user = await database.get(
-        'SELECT id, email, name, role FROM users WHERE id = ? AND is_active = 1',
+        `SELECT u.id, u.email, u.name, u.role, p.phone, p.poste
+         FROM users u
+         LEFT JOIN profiles p ON u.id = p.user_id
+         WHERE u.id = ? AND u.is_active = 1`,
         [req.user.id]
       );
   
@@ -331,6 +334,59 @@ app.post('/api/auth/login', async (req, res) => {
       res.json(user);
     } catch (error) {
       console.error('Erreur lors de la récupération des informations utilisateur:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur'
+      });
+    }
+  });
+
+  // Route pour mettre à jour le profil utilisateur
+  app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+    const { name, phone, poste } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le nom est requis'
+      });
+    }
+
+    try {
+      const database = await getDatabase();
+      
+      // Mettre à jour les informations de base dans la table users
+      await database.run(
+        'UPDATE users SET name = ?, updated_at = datetime("now") WHERE id = ?',
+        [name, req.user.id]
+      );
+
+      // Vérifier si un profil existe déjà
+      const existingProfile = await database.get(
+        'SELECT id FROM profiles WHERE user_id = ?',
+        [req.user.id]
+      );
+
+      if (existingProfile) {
+        // Mettre à jour le profil existant
+        await database.run(
+          'UPDATE profiles SET phone = ?, poste = ?, updated_at = datetime("now") WHERE user_id = ?',
+          [phone, poste, req.user.id]
+        );
+      } else {
+        // Créer un nouveau profil
+        await database.run(
+          'INSERT INTO profiles (user_id, phone, poste) VALUES (?, ?, ?)',
+          [req.user.id, phone, poste]
+        );
+      }
+
+      res.json({
+        success: true,
+        message: 'Profil mis à jour avec succès'
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du profil:', error);
       res.status(500).json({
         success: false,
         message: 'Erreur interne du serveur'

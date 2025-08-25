@@ -35,13 +35,18 @@ interface Statistics {
   mesRapports?: number;
 }
 
+interface DiligenceData {
+  statut: string;
+  // autres propriétés si nécessaire
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [selectedDiligence, setSelectedDiligence] = useState<Echeance | null>(null);
   const [stats, setStats] = useState<Statistics | null>(null);
-  const [diligencesData, setDiligencesData] = useState<unknown[]>([]);
+  const [diligencesData, setDiligencesData] = useState<DiligenceData[]>([]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -102,7 +107,7 @@ export default function DashboardPage() {
       }
     };
 
-    const calculateRealStatistics = (diligences: unknown[]): Statistics => {
+    const calculateRealStatistics = (diligences: DiligenceData[]): Statistics => {
       const enCours = diligences.filter(d => d.statut === 'En cours').length;
       const terminees = diligences.filter(d => d.statut === 'Terminé').length;
       const planifiees = diligences.filter(d => d.statut === 'Planifié').length;
@@ -137,29 +142,29 @@ export default function DashboardPage() {
     };
 
 
-    const getDefaultStatistics = (isAdmin: boolean): Statistics => {
-      return isAdmin ? {
-        diligencesEnCours: 24,
-        diligencesTerminees: 156,
-        diligencesPlanifiees: 18,
-        diligencesEnRetard: 3,
-        tauxCompletion: 87,
-        utilisateursActifs: 247,
-        documentsTraites: 1248,
-        rapportsGeneres: 89
-      } : {
-        diligencesEnCours: 3,
-        diligencesTerminees: 12,
-        diligencesPlanifiees: 2,
-        diligencesEnRetard: 0,
-        tauxCompletion: 92,
-        mesDocuments: 45,
-        mesRapports: 8
-      };
-    };
-
     checkUser();
   }, [router]);
+
+  const getDefaultStatistics = (isAdmin: boolean): Statistics => {
+    return isAdmin ? {
+      diligencesEnCours: 24,
+      diligencesTerminees: 156,
+      diligencesPlanifiees: 18,
+      diligencesEnRetard: 3,
+      tauxCompletion: 87,
+      utilisateursActifs: 247,
+      documentsTraites: 1248,
+      rapportsGeneres: 89
+    } : {
+      diligencesEnCours: 3,
+      diligencesTerminees: 12,
+      diligencesPlanifiees: 2,
+      diligencesEnRetard: 0,
+      tauxCompletion: 92,
+      mesDocuments: 45,
+      mesRapports: 8
+    };
+  };
 
   if (loading) {
     return (
