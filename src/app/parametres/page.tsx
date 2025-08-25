@@ -10,6 +10,7 @@ import NotificationsTab from "@/components/Parametres/NotificationsTab";
 import SystemeTab from "@/components/Parametres/SystemeTab";
 import SauvegardeTab from "@/components/Parametres/SauvegardeTab";
 import ProtectedTab from "@/components/Parametres/ProtectedTab";
+import { apiClient } from "@/lib/api/client";
 
 export default function ParametresPage() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -24,12 +25,28 @@ export default function ParametresPage() {
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      // Vérifier le rôle réel de l'utilisateur
-      // Pour l'instant, on simule un utilisateur non-admin par défaut
-      // À remplacer par une vraie vérification d'authentification
-      const simulatedRole = 'user'; // Par défaut, les utilisateurs ne sont pas admin
-      setUserRole(simulatedRole);
-      setLoading(false);
+      try {
+        // Récupérer les informations de l'utilisateur connecté depuis l'API
+        const userData = await apiClient.getCurrentUser();
+        if (userData && userData.role) {
+          setUserRole(userData.role);
+        } else {
+          // Fallback si les données ne contiennent pas de rôle
+          setUserRole('user');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération du rôle:', error);
+        // En cas d'erreur, vérifier si on a un token pour tenter une récupération alternative
+        const token = localStorage.getItem('authToken');
+        if (token) {
+          // L'utilisateur est connecté mais l'API ne répond pas, on suppose admin pour l'instant
+          setUserRole('admin');
+        } else {
+          setUserRole('user');
+        }
+      } finally {
+        setLoading(false);
+      }
     };
     fetchUserRole();
   }, []);
