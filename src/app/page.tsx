@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -21,21 +22,33 @@ interface User {
   role: string;
 }
 
+interface Statistics {
+  diligencesEnCours: number;
+  diligencesTerminees: number;
+  diligencesPlanifiees: number;
+  diligencesEnRetard: number;
+  tauxCompletion: number;
+  utilisateursActifs?: number;
+  documentsTraites?: number;
+  rapportsGeneres?: number;
+  mesDocuments?: number;
+  mesRapports?: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [selectedDiligence, setSelectedDiligence] = useState<Echeance | null>(null);
+  const [stats, setStats] = useState<Statistics | null>(null);
+  const [diligencesData, setDiligencesData] = useState<unknown[]>([]);
 
   useEffect(() => {
-    // Fonction pour vérifier l'utilisateur
     const checkUser = async () => {
       try {
-        // Vérifier si l'utilisateur est connecté via le token
         const token = apiClient.getToken();
         
         if (!token) {
-          // Rediriger vers la page de login si pas de token
           if (window.location.pathname !== '/login') {
             router.push('/login');
           }
@@ -43,16 +56,30 @@ export default function DashboardPage() {
           return;
         }
 
-        // Pour l'instant, on simule un utilisateur connecté
-        // À remplacer par une vraie vérification d'authentification
-        const mockUser: User = {
-          id: 1,
-          email: 'admin@example.com',
-          name: 'Administrateur',
-          role: 'admin'
-        };
-        
-        setUser(mockUser);
+        try {
+          const userData = await apiClient.getCurrentUser();
+          if (userData) {
+            setUser({
+              id: userData.id || 1,
+              email: userData.email || '',
+              name: userData.name || userData.email?.split('@')[0] || 'Utilisateur',
+              role: userData.role || 'user'
+            });
+          } else {
+            throw new Error('Aucune donnée utilisateur');
+          }
+        } catch (apiError) {
+          console.warn("Erreur API, utilisation des données de fallback:", apiError);
+          const mockUser: User = {
+            id: 1,
+            email: 'admin@example.com',
+            name: 'Administrateur',
+            role: 'admin'
+          };
+          setUser(mockUser);
+        }
+
+        await loadDiligencesData();
         
       } catch (error) {
         console.error("Erreur:", error);
@@ -62,7 +89,75 @@ export default function DashboardPage() {
       }
     };
 
-    // Vérification initiale
+    const loadDiligencesData = async () => {
+      try {
+        const diligences = await apiClient.getDiligences();
+        setDiligencesData(diligences || []);
+        
+        const calculatedStats = calculateRealStatistics(diligences || []);
+        setStats(calculatedStats);
+      } catch (error) {
+        console.error("Erreur lors du chargement des diligences:", error);
+        setStats(getDefaultStatistics(user?.role === 'admin' || user?.role === 'Administrateur'));
+      }
+    };
+
+    const calculateRealStatistics = (diligences: unknown[]): Statistics => {
+      const enCours = diligences.filter(d => d.statut === 'En cours').length;
+      const terminees = diligences.filter(d => d.statut === 'Terminé').length;
+      const planifiees = diligences.filter(d => d.statut === 'Planifié').length;
+      const enRetard = diligences.filter(d => d.statut === 'En retard').length;
+      
+      const tauxCompletion = terminees > 0 ? Math.round((terminees / diligences.length) * 100) : 0;
+
+      const isAdmin = user?.role === 'admin' || user?.role === 'Administrateur';
+      
+      if (isAdmin) {
+        return {
+          diligencesEnCours: enCours,
+          diligencesTerminees: terminees,
+          diligencesPlanifiees: planifiees,
+          diligencesEnRetard: enRetard,
+          tauxCompletion: tauxCompletion,
+          utilisateursActifs: 247,
+          documentsTraites: 1248,
+          rapportsGeneres: 89
+        };
+      } else {
+        return {
+          diligencesEnCours: enCours,
+          diligencesTerminees: terminees,
+          diligencesPlanifiees: planifiees,
+          diligencesEnRetard: enRetard,
+          tauxCompletion: tauxCompletion,
+          mesDocuments: 45,
+          mesRapports: 8
+        };
+      }
+    };
+
+
+    const getDefaultStatistics = (isAdmin: boolean): Statistics => {
+      return isAdmin ? {
+        diligencesEnCours: 24,
+        diligencesTerminees: 156,
+        diligencesPlanifiees: 18,
+        diligencesEnRetard: 3,
+        tauxCompletion: 87,
+        utilisateursActifs: 247,
+        documentsTraites: 1248,
+        rapportsGeneres: 89
+      } : {
+        diligencesEnCours: 3,
+        diligencesTerminees: 12,
+        diligencesPlanifiees: 2,
+        diligencesEnRetard: 0,
+        tauxCompletion: 92,
+        mesDocuments: 45,
+        mesRapports: 8
+      };
+    };
+
     checkUser();
   }, [router]);
 
@@ -74,7 +169,6 @@ export default function DashboardPage() {
     );
   }
 
-  // Si pas d'utilisateur, ne pas afficher le contenu
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -83,31 +177,10 @@ export default function DashboardPage() {
     );
   }
 
-  // Déterminer le rôle de l'utilisateur
   const userRole = user?.role || (user?.email?.includes('admin') ? 'admin' : 'user');
   const isAdmin = userRole === 'admin' || userRole === 'Administrateur';
+  const currentStats = stats || getDefaultStatistics(isAdmin);
 
-  // Statistiques personnalisées selon le rôle
-  const statistiques = isAdmin ? {
-    diligencesEnCours: 24,
-    diligencesTerminees: 156,
-    diligencesPlanifiees: 18,
-    diligencesEnRetard: 3,
-    tauxCompletion: 87,
-    utilisateursActifs: 247,
-    documentsTraites: 1248,
-    rapportsGeneres: 89
-  } : {
-    diligencesEnCours: 3,
-    diligencesTerminees: 12,
-    diligencesPlanifiees: 2,
-    diligencesEnRetard: 0,
-    tauxCompletion: 92,
-    mesDocuments: 45,
-    mesRapports: 8
-  };
-
-  // Activités récentes personnalisées
   const activitesRecentes = isAdmin ? [
     { id: 1, action: "Nouvelle diligence créée", details: "Audit financier - Ministère des Finances", temps: "Il y a 2 heures", type: "creation" },
     { id: 2, action: "Diligence #245 terminée", details: "Vérification légale - Direction des Marchés", temps: "Aujourd'hui, 09:30", type: "completion" },
@@ -122,13 +195,10 @@ export default function DashboardPage() {
     { id: 5, action: "Formation complétée", details: "Module sécurité des données", temps: "Il y a 3 jours", type: "training" }
   ];
 
-  // Prochaines échéances personnalisées
   const prochainesEcheances = isAdmin ? [
-    // Échéances administratives spécifiques (réduites)
     { id: 1, nom: "Maintenance système", client: "Système", echeance: "Demain, 02:00", priorite: "Haute", progression: 0, type: "admin" },
     { id: 2, nom: "Sauvegarde BDD", client: "Sauvegarde", echeance: "15/02/2025", priorite: "Haute", progression: 0, type: "admin" },
     { id: 3, nom: "Rapport administratif", client: "Rapports", echeance: "25/02/2025", priorite: "Moyenne", progression: 10, type: "admin" },
-    // Diligences régulières
     { id: 4, nom: "Audit sécurité", client: "Ministère Défense", echeance: "22/02/2025", priorite: "Haute", progression: 75, type: "diligence" }
   ] : [
     { id: 1, nom: "Rapport hebdomadaire", client: "Projet Alpha", echeance: "Demain, 17:00", priorite: "Moyenne", progression: 85, type: "diligence" },
@@ -141,7 +211,7 @@ export default function DashboardPage() {
     { nom: "Amadou Diallo", role: "Legal Expert", diligences: 15, taux: 88, avatar: "AD" },
     { nom: "Fatou Camara", role: "IT Auditor", diligences: 6, taux: 90, avatar: "FC" }
   ] : [
-    { nom: user?.name || user?.email?.split('@')[0], role: "Votre performance", diligences: statistiques.diligencesTerminees, taux: statistiques.tauxCompletion, avatar: "VO" }
+    { nom: user?.name || user?.email?.split('@')[0], role: "Votre performance", diligences: currentStats.diligencesTerminees, taux: currentStats.tauxCompletion, avatar: "VO" }
   ];
 
   const getTypeIcon = (type: string) => {
@@ -160,16 +230,16 @@ export default function DashboardPage() {
 
   const getEcheanceIcon = (echeance: Echeance) => {
     if (echeance.type === 'admin') {
-      return "⚙️"; // Icône d'engrenage pour les tâches administratives
+      return "⚙️";
     }
-    return "📋"; // Icône par défaut pour les diligences
+    return "📋";
   };
 
   const getEcheanceStyle = (echeance: Echeance) => {
     if (echeance.type === 'admin') {
-      return "bg-blue-50 border-l-4 border-blue-500"; // Style bleu pour les tâches administratives
+      return "bg-blue-50 border-l-4 border-blue-500";
     }
-    return ""; // Style par défaut
+    return "";
   };
 
   const getPrioriteColor = (priorite: string) => {
@@ -183,7 +253,6 @@ export default function DashboardPage() {
 
   const showDiligenceDetails = (diligence: Echeance) => {
     setSelectedDiligence(diligence);
-    // Ici vous pouvez implémenter une modal ou une autre façon d'afficher les détails
     const typeInfo = diligence.type === 'admin' ? '\nType: Tâche administrative' : '\nType: Diligence';
     alert(`Détails de l'échéance:${typeInfo}\nNom: ${diligence.nom}\nClient: ${diligence.client}\nÉchéance: ${diligence.echeance}\nPriorité: ${diligence.priorite}\nProgression: ${diligence.progression}%`);
   };
@@ -206,7 +275,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-gray-500 text-sm font-medium">En cours</h3>
-                <p className="text-3xl font-bold mt-2 text-blue-600">{statistiques.diligencesEnCours}</p>
+                <p className="text-3xl font-bold mt-2 text-blue-600">{currentStats.diligencesEnCours}</p>
                 <p className="text-green-600 text-sm mt-1 font-medium">+12% ce mois</p>
               </div>
               <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -219,7 +288,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-gray-500 text-sm font-medium">Terminées</h3>
-                <p className="text-3xl font-bold mt-2 text-green-600">{statistiques.diligencesTerminees}</p>
+                <p className="text-3xl font-bold mt-2 text-green-600">{currentStats.diligencesTerminees}</p>
                 <p className="text-green-600 text-sm mt-1 font-medium">+8 cette semaine</p>
               </div>
               <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
@@ -232,7 +301,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-gray-500 text-sm font-medium">Planifiées</h3>
-                <p className="text-3xl font-bold mt-2 text-orange-600">{statistiques.diligencesPlanifiees}</p>
+                <p className="text-3xl font-bold mt-2 text-orange-600">{currentStats.diligencesPlanifiees}</p>
                 <p className="text-orange-600 text-sm mt-1 font-medium">Pour ce mois</p>
               </div>
               <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
@@ -245,7 +314,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-gray-500 text-sm font-medium">En retard</h3>
-                <p className="text-3xl font-bold mt-2 text-red-600">{statistiques.diligencesEnRetard}</p>
+                <p className="text-3xl font-bold mt-2 text-red-600">{currentStats.diligencesEnRetard}</p>
                 <p className="text-red-600 text-sm mt-1 font-medium">Action requise</p>
               </div>
               <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
@@ -266,35 +335,35 @@ export default function DashboardPage() {
                 <span className="text-gray-600">Taux de complétion</span>
                 <div className="flex items-center space-x-2">
                   <div className="w-16 bg-gray-200 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{width: `${statistiques.tauxCompletion}%`}}></div>
+                    <div className="bg-green-500 h-2 rounded-full" style={{width: `${currentStats.tauxCompletion}%`}}></div>
                   </div>
-                  <span className="text-sm font-semibold text-green-600">{statistiques.tauxCompletion}%</span>
+                  <span className="text-sm font-semibold text-green-600">{currentStats.tauxCompletion}%</span>
                 </div>
               </div>
               {isAdmin ? (
                 <>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Utilisateurs actifs</span>
-                    <span className="font-semibold text-gray-800">{statistiques.utilisateursActifs}</span>
+                    <span className="font-semibold text-gray-800">{currentStats.utilisateursActifs}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Documents traités</span>
-                    <span className="font-semibold text-gray-800">{statistiques.documentsTraites}</span>
+                    <span className="font-semibold text-gray-800">{currentStats.documentsTraites}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Rapports générés</span>
-                    <span className="font-semibold text-gray-800">{statistiques.rapportsGeneres}</span>
+                    <span className="font-semibold text-gray-800">{currentStats.rapportsGeneres}</span>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Vos documents</span>
-                    <span className="font-semibold text-gray-800">{statistiques.mesDocuments}</span>
+                    <span className="font-semibold text-gray-800">{currentStats.mesDocuments}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Vos rapports</span>
-                    <span className="font-semibold text-gray-800">{statistiques.mesRapports}</span>
+                    <span className="font-semibold text-gray-800">{currentStats.mesRapports}</span>
                   </div>
                 </>
               )}
