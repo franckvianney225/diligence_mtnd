@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -37,9 +38,17 @@ const UserIcon = () => (
   </svg>
 );
 
+const NotificationIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 5a2 2 0 114 0c0 7.5 8 4.5 8 11H2c0-6.5 8-3.5 8-11z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.73 21a2 2 0 01-3.46 0" />
+  </svg>
+);
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [notificationCount, setNotificationCount] = useState(3); // Simuler des notifications
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -55,7 +64,7 @@ export default function Sidebar() {
         window.location.href = '/login';
       }
     };
-    
+
     fetchUser();
   }, []);
 
@@ -70,19 +79,37 @@ export default function Sidebar() {
 
   return (
     <div className="fixed left-0 top-0 w-56 h-screen bg-white flex flex-col shadow-lg border-r border-gray-200 z-40">
-      {/* Header avec profil utilisateur */}
+      {/* Header avec profil utilisateur amélioré */}
       <div className="p-4 border-b border-gray-200 bg-orange-50 flex-shrink-0">
         <div className="flex items-center space-x-2">
           <div className="w-10 h-10 bg-orange-100 border-2 border-orange-200 rounded-full flex items-center justify-center">
             <UserIcon />
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-800 text-sm">
-              {user?.name || user?.email || 'Utilisateur'}
-            </h3>
-            <p className="text-xs text-orange-600 font-medium">
-              ({user?.role || (user ? (user.email?.includes('admin') ? 'Administrateur' : 'Connecté') : 'Invité')})
-            </p>
+          <div className="flex-1 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-800 text-sm">
+                {user?.name || user?.email || 'Utilisateur'}
+              </h3>
+              <p className="text-xs text-orange-600 font-medium">
+                ({user?.role || (user ? (user.email?.includes('admin') ? 'Administrateur' : 'Connecté') : 'Invité')})
+              </p>
+            </div>
+            <button className="relative p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all duration-200 group">
+              <NotificationIcon />
+              {/* Badge de notification */}
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">{notificationCount}</span>
+                </span>
+              )}
+              {/* Tooltip */}
+              <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                <div className="bg-gray-800 text-white text-xs rounded-lg px-2 py-1 whitespace-nowrap">
+                  {notificationCount > 0 ? `${notificationCount} notification${notificationCount > 1 ? 's' : ''}` : 'Aucune notification'}
+                  <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-800"></div>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -90,11 +117,11 @@ export default function Sidebar() {
       {/* Navigation principale */}
       <div className="flex-1 px-3 py-4 overflow-y-auto">
         <nav className="space-y-1">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-              isActive('/') 
-                ? 'bg-orange-100 text-orange-700 border-l-4 border-orange-500' 
+              isActive('/')
+                ? 'bg-orange-100 text-orange-700 border-l-4 border-orange-500'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
             }`}
           >
@@ -105,7 +132,7 @@ export default function Sidebar() {
               Tableau de bord
             </span>
           </Link>
-          
+
           {!isAdmin() && (
             <Link
               href="/diligence"
@@ -149,11 +176,11 @@ export default function Sidebar() {
 
       {/* Section paramètres */}
       <div className="p-3 flex-shrink-0">
-        <Link 
-          href="/parametres" 
+        <Link
+          href="/parametres"
           className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-            isActive('/parametres') 
-              ? 'bg-orange-100 text-orange-700 border-l-4 border-orange-500' 
+            isActive('/parametres')
+              ? 'bg-orange-100 text-orange-700 border-l-4 border-orange-500'
               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
           }`}
         >

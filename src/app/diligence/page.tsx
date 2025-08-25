@@ -511,20 +511,25 @@ export default function DiligencePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Rechercher</label>
-              <input
-                type="text"
-                placeholder="Titre, direction, destinataire..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
-              />
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Titre, direction, destinataire..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300 bg-white text-gray-900 placeholder-gray-500"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
               <select
                 value={filters.statut}
                 onChange={(e) => handleFilterChange('statut', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
+                className="w-full pl-10 pr-4 py-3 bg-white text-gray-900 appearance-none border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
               >
                 <option value="">Tous les statuts</option>
                 <option value="En cours">En cours</option>
@@ -538,7 +543,7 @@ export default function DiligencePage() {
               <select
                 value={filters.priorite}
                 onChange={(e) => handleFilterChange('priorite', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300 text-gray-900"
               >
                 <option value="">Toutes priorités</option>
                 <option value="Haute">Haute</option>
@@ -552,7 +557,7 @@ export default function DiligencePage() {
                 type="date"
                 value={filters.dateDebut}
                 onChange={(e) => handleFilterChange('dateDebut', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300 text-gray-900"
               />
             </div>
             <div>
@@ -561,7 +566,7 @@ export default function DiligencePage() {
                 type="date"
                 value={filters.dateFin}
                 onChange={(e) => handleFilterChange('dateFin', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300 text-gray-900"
               />
             </div>
           </div>
