@@ -5,7 +5,6 @@ import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import DiligenceForm from "@/components/DiligenceForm";
 import DeleteModal from "@/components/DeleteModal";
-import DetailsDiligence from "@/components/Diligence/DetailsDiligence";
 import { apiClient } from "@/lib/api/client";
 
 interface Diligence {
@@ -48,7 +47,6 @@ export default function DiligencePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingDiligence, setEditingDiligence] = useState<Diligence | null>(null);
   const [diligenceToDelete, setDiligenceToDelete] = useState<Diligence | null>(null);
-  const [selectedDiligence, setSelectedDiligence] = useState<Diligence | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -556,12 +554,12 @@ export default function DiligencePage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => setSelectedDiligence(diligence)}
+                        <Link
+                          href={`/diligence/${diligence.id}`}
                           className="text-blue-600 hover:text-blue-900"
                         >
                           Voir
-                        </button>
+                        </Link>
                         <button
                           onClick={() => handleEditDiligence(diligence)}
                           className="text-orange-600 hover:text-orange-900"
@@ -637,22 +635,6 @@ export default function DiligencePage() {
           />
         )}
 
-        {selectedDiligence && (
-          <DetailsDiligence
-            id={selectedDiligence.id}
-            title={selectedDiligence.titre}
-            description={selectedDiligence.description}
-            date={formatDate(selectedDiligence.created_at)}
-            status={selectedDiligence.statut.toLowerCase().replace(' ', '_') as "en_cours" | "termine" | "en_attente" | "en_retard"}
-            directionDestinataire={selectedDiligence.directiondestinataire}
-            destinataire={selectedDiligence.destinataire || 'Non spécifié'}
-            echeance={formatDate(selectedDiligence.datefin)}
-            documents={selectedDiligence.piecesjointes.length}
-            commentaires={0}
-            priorite={selectedDiligence.priorite}
-            progression={selectedDiligence.progression}
-          />
-        )}
       </div>
     </div>
   );

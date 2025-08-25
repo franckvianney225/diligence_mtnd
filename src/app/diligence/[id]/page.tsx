@@ -1,93 +1,270 @@
 "use client";
-import { useParams } from "next/navigation";
-import DetailsDiligence from "@/components/Diligence/DetailsDiligence";
-import Sidebar from "@/components/Sidebar";
 
-interface MockDiligence {
-  id: string;
-  title: string;
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import Sidebar from "@/components/Sidebar";
+import { apiClient } from "@/lib/api/client";
+
+interface Diligence {
+  id: number;
+  titre: string;
+  directiondestinataire: string;
+  datedebut: string;
+  datefin: string;
   description: string;
-  date: string;
-  status: "en_cours" | "termine" | "en_attente" | "en_retard";
-  directionDestinataire: string;
-  destinataire: string;
-  echeance: string;
-  documents: number;
-  commentaires: number;
   priorite: "Haute" | "Moyenne" | "Basse";
+  statut: "Planifié" | "En cours" | "Terminé" | "En retard";
+  destinataire: string | null;
+  piecesjointes: string[];
   progression: number;
+  created_at: string;
+  updated_at: string;
+  assigned_name?: string;
+  created_by_name?: string;
 }
 
-const diligences: MockDiligence[] = [
-  {
-    id: "1",
-    title: "Audit financier ministère",
-    description: "Audit complet des comptes du ministère pour l'exercice 2024",
-    date: "15/01/2025",
-    status: "en_cours",
-    directionDestinataire: "Ministère des Finances",
-    destinataire: "Jean Kouassi",
-    echeance: "28/02/2025",
-    documents: 12,
-    commentaires: 8,
-    priorite: "Haute",
-    progression: 65
+export default function DiligenceDetailPage() {
+  const params = useParams();
+  const diligenceId = params.id as string;
+  const [diligence, setDiligence] = useState<Diligence | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDiligence = async () => {
+      try {
+        setLoading(true);
+        const diligences = await apiClient.getDiligences();
+        const foundDiligence = diligences.find((d: Diligence) => d.id.toString() === diligenceId);
+        
+        if (foundDiligence) {
+          setDiligence(foundDiligence);
+        } else {
+          setError("Diligence non trouvée");
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement de la diligence:", err);
+        setError("Erreur lors du chargement des données");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (diligenceId) {
+      fetchDiligence();
+    }
+  }, [diligenceId]);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getStatutColor = (statut: string) => {
+    switch(statut) {
+      case "En cours": return "bg-blue-100 text-blue-800";
+      case "Terminé": return "bg-green-100 text-green-800";
+      case "Planifié": return "bg-orange-100 text-orange-800";
+      case "En retard": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getPrioriteColor = (priorite: string) => {
+    switch(priorite) {
+      case "Haute": return "bg-red-100 text-red-800";
+      case "Moyenne": return "bg-orange-100 text-orange-800";
+      case "Basse": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getPiecesJointes = (diligence: Diligence): string[] => {
+    if (Array.isArray(diligence.piecesjointes)) {
+      return diligence.piecesjointes;
+    }
+    
+    try {
+      if (typeof diligence.piecesjointes === 'string') {
+        const parsed = JSON.parse(diligence.piecesjointes);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Erreur lors du parsing des pièces jointes:', error);
+      return [];
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="pl-64 p-8 min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Chargement de la diligence...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
-];
 
-export default function DiligenceDetailsPage() {
-  const { id } = useParams();
-  const diligence = diligences.find(d => d.id === id);
-
-  if (!diligence) {
-    return <div>Diligence non trouvée</div>;
+  if (error || !diligence) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="pl-64 p-8 min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+              <p className="font-medium">{error || "Diligence non trouvée"}</p>
+            </div>
+            <Link
+              href="/diligence"
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              ← Retour à la liste des diligences
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar />
       <div className="pl-64 p-8 min-h-screen">
-        <div className="w-full px-4 space-y-8">
-          <DetailsDiligence {...diligence} />
-          
-          {/* Section supplémentaire */}
-          <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 space-y-6">
-            <h2 className="text-xl font-semibold text-gray-800">Documents attachés</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Array.from({ length: diligence.documents }).map((_, i) => (
-                <div key={i} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-center space-x-3">
-                    <div className="text-blue-500">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-700">Document {i+1}</h3>
-                      <p className="text-sm text-gray-500">PDF - {(Math.random() * 2 + 0.5).toFixed(1)} MB</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {/* Header avec bouton retour */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/diligence"
+              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+            >
+              <span>←</span>
+              <span>Retour</span>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                Détails de la Diligence
+              </h1>
+              <p className="text-gray-600">Consultation complète des informations</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Carte principale */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-8">
+          {/* En-tête avec titre et statuts */}
+          <div className="flex justify-between items-start mb-8">
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                {diligence.titre}
+              </h2>
+              <p className="text-gray-600 text-sm">
+                Créée le {formatDate(diligence.created_at)}
+              </p>
+            </div>
+            <div className="flex flex-col items-end space-y-2">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatutColor(diligence.statut)}`}>
+                {diligence.statut}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPrioriteColor(diligence.priorite)}`}>
+                {diligence.priorite}
+              </span>
             </div>
           </div>
 
-          {/* Section commentaires */}
-          <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 space-y-6">
-            <h2 className="text-xl font-semibold text-gray-800">Commentaires ({diligence.commentaires})</h2>
-            <div className="space-y-4">
-              {Array.from({ length: diligence.commentaires }).map((_, i) => (
-                <div key={i} className="border-l-4 border-orange-500 pl-4 py-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-700">Utilisateur {i+1}</h3>
-                      <p className="text-gray-600">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
-                    </div>
-                    <span className="text-sm text-gray-500">Il y a {i+1} jour(s)</span>
-                  </div>
+          {/* Grille d'informations */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Informations générales</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Direction destinataire</label>
+                  <p className="text-gray-800">{diligence.directiondestinataire}</p>
                 </div>
-              ))}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Destinataire</label>
+                  <p className="text-gray-800">{diligence.destinataire || "Non spécifié"}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Période</label>
+                  <p className="text-gray-800">
+                    Du {formatDate(diligence.datedebut)} au {formatDate(diligence.datefin)}
+                  </p>
+                </div>
+              </div>
             </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">État davancement</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Progression</label>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-orange-500 h-2.5 rounded-full" 
+                      style={{ width: `${diligence.progression}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">{diligence.progression}% complété</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Dernière mise à jour</label>
+                  <p className="text-gray-800">{formatDate(diligence.updated_at)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Description</h3>
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <p className="text-gray-800 whitespace-pre-wrap">{diligence.description}</p>
+            </div>
+          </div>
+
+          {/* Pièces jointes */}
+          {diligence.piecesjointes && getPiecesJointes(diligence).length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Pièces jointes</h3>
+              <div className="space-y-2">
+                {getPiecesJointes(diligence).map((piece: string, index: number) => (
+                  <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <span className="text-gray-800 text-sm">{piece}</span>
+                    <button className="text-orange-600 hover:text-orange-800 text-sm font-medium">
+                      Télécharger
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Actions</h3>
+          <div className="flex space-x-4">
+            <Link
+              href={`/diligence?edit=${diligence.id}`}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+            >
+              Modifier
+            </Link>
+            <button className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors">
+              Historique
+            </button>
+            <button className="bg-red-100 hover:bg-red-200 text-red-700 px-6 py-2 rounded-lg font-medium transition-colors">
+              Supprimer
+            </button>
           </div>
         </div>
       </div>
