@@ -24,9 +24,11 @@ export default function ParametresPage() {
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      // Pour l'instant, on simule un utilisateur admin
+      // Vérifier le rôle réel de l'utilisateur
+      // Pour l'instant, on simule un utilisateur non-admin par défaut
       // À remplacer par une vraie vérification d'authentification
-      setUserRole('admin');
+      const simulatedRole = 'user'; // Par défaut, les utilisateurs ne sont pas admin
+      setUserRole(simulatedRole);
       setLoading(false);
     };
     fetchUserRole();
