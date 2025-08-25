@@ -59,11 +59,18 @@ app.get('/api/users', async (req, res) => {
 
 // Route pour créer un nouvel utilisateur
 app.post('/api/users', async (req, res) => {
-  const { email, password, full_name, role } = req.body;
+  const { email, password, name, role } = req.body;
   
-  if (!email || !password || !full_name) {
+  if (!email || !name) {
     return res.status(400).json({
-      error: 'Email, mot de passe et nom complet sont requis'
+      error: 'Email et nom complet sont requis'
+    });
+  }
+
+  // Pour la création, le mot de passe est requis
+  if (!password) {
+    return res.status(400).json({
+      error: 'Le mot de passe est requis pour la création d\'un utilisateur'
     });
   }
 
@@ -90,7 +97,7 @@ app.post('/api/users', async (req, res) => {
     const result = await database.run(
       `INSERT INTO users (email, password_hash, name, role, is_active, created_at)
        VALUES (?, ?, ?, ?, 1, datetime('now'))`,
-      [email, passwordHash, full_name, role || 'Utilisateur']
+      [email, passwordHash, name, role || 'user']
     );
 
     res.status(201).json({
@@ -100,6 +107,72 @@ app.post('/api/users', async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la création de l\'utilisateur:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// Route pour modifier un utilisateur
+app.put('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { email, name, role, password } = req.body;
+  
+  if (!email || !name) {
+    return res.status(400).json({
+      error: 'Email et nom complet sont requis'
+    });
+  }
+
+  try {
+    const database = await getDatabase();
+    
+    // Vérifier si l'utilisateur existe
+    const user = await database.get(
+      'SELECT id, email FROM users WHERE id = ? AND is_active = 1',
+      [id]
+    );
+    
+    if (!user) {
+      return res.status(404).json({
+        error: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Vérifier si l'email est déjà utilisé par un autre utilisateur
+    if (email !== user.email) {
+      const existingUser = await database.get(
+        'SELECT id FROM users WHERE email = ? AND id != ?',
+        [email, id]
+      );
+      
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'Un utilisateur avec cet email existe déjà'
+        });
+      }
+    }
+
+    let updateQuery = 'UPDATE users SET email = ?, name = ?, role = ?';
+    let queryParams = [email, name, role || 'user'];
+
+    // Mettre à jour le mot de passe seulement si fourni
+    if (password) {
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+      updateQuery += ', password_hash = ?';
+      queryParams.push(passwordHash);
+    }
+
+    updateQuery += ' WHERE id = ?';
+    queryParams.push(id);
+
+    await database.run(updateQuery, queryParams);
+
+    res.json({
+      success: true,
+      message: 'Utilisateur modifié avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la modification de l\'utilisateur:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 });

@@ -119,6 +119,39 @@ export default function UtilisateursTab() {
     }
   };
 
+  const handleUpdateUser = async (userData: {
+    email: string;
+    password: string;
+    name: string;
+    role: string;
+  }) => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(`/api/admin/users?id=${editingUser?.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur lors de la modification de l'utilisateur");
+      }
+
+      setSuccess("Utilisateur modifié avec succès");
+      fetchUsers();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Erreur lors de la modification de l'utilisateur");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -188,15 +221,15 @@ export default function UtilisateursTab() {
       </div>
 
       <CreateUserModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingUser(null);
-        }}
-        onCreate={handleCreateUser}
-        editingUser={editingUser || undefined}
-        isEditing={!!editingUser}
-      />
+       isOpen={isModalOpen}
+       onClose={() => {
+         setIsModalOpen(false);
+         setEditingUser(null);
+       }}
+       onCreate={editingUser ? handleUpdateUser : handleCreateUser}
+       editingUser={editingUser || undefined}
+       isEditing={!!editingUser}
+     />
 
       <DeleteModal
         isOpen={deleteModalOpen}
