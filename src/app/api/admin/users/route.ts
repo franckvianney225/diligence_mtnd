@@ -1,42 +1,85 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+
 export async function GET() {
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/users`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-  const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers()
-  
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!response.ok) {
+      throw new Error(`Backend responded with status ${response.status}`);
+    }
+
+    const users = await response.json();
+    return NextResponse.json(users);
+  } catch (error: unknown) {
+    console.error('Error fetching users from backend:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
   }
+}
 
-  return NextResponse.json(users)
+export async function POST(request: Request) {
+  try {
+    const userData = await request.json();
+    
+    const response = await fetch(`${BACKEND_URL}/api/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Backend responded with status ${response.status}`);
+    }
+
+    const result = await response.json();
+    return NextResponse.json(result);
+  } catch (error: unknown) {
+    console.error('Error creating user:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(request: Request) {
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
-    const { userId } = await request.json()
+    const { userId } = await request.json();
     
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
-    
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    const response = await fetch(`${BACKEND_URL}/api/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Backend responded with status ${response.status}`);
     }
 
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+    const result = await response.json();
+    return NextResponse.json(result);
+  } catch (error: unknown) {
+    console.error('Error deleting user:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

@@ -67,10 +67,44 @@ export default function DiligencePage() {
   });
   const [allDiligences, setAllDiligences] = useState<Diligence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
 
-  // Charger les diligences depuis Supabase
+  // Initialiser les états depuis localStorage et charger les données
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Charger depuis le cache local si disponible et récent (moins de 5 minutes)
+      const cachedData = localStorage.getItem('diligencesCache');
+      const cachedTime = localStorage.getItem('diligencesCacheTime');
+      
+      if (cachedData && cachedTime) {
+        const cacheAge = Date.now() - parseInt(cachedTime);
+        if (cacheAge < 300000) { // 5 minutes de cache
+          setAllDiligences(JSON.parse(cachedData));
+          setLastLoadTime(parseInt(cachedTime));
+          setLoading(false);
+          return;
+        }
+      }
+    }
+
+    // Charger les données si pas de cache ou cache expiré
     loadDiligences();
+  }, []);
+
+  // Détecter quand l'utilisateur revient à l'onglet
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // L'utilisateur revient à l'onglet, mais on ne recharge PAS les données automatiquement
+        console.log('Utilisateur de retour sur la page - Pas de rechargement automatique');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadDiligences = async () => {
@@ -85,7 +119,15 @@ export default function DiligencePage() {
         throw error;
       }
 
-      setAllDiligences(data || []);
+      const diligencesData = data || [];
+      setAllDiligences(diligencesData);
+      setLastLoadTime(Date.now());
+      
+      // Sauvegarder dans le cache local
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('diligencesCache', JSON.stringify(diligencesData));
+        localStorage.setItem('diligencesCacheTime', Date.now().toString());
+      }
     } catch (error) {
       console.error('Erreur lors du chargement des diligences:', error);
       alert('Erreur lors du chargement des données');
@@ -140,7 +182,7 @@ export default function DiligencePage() {
       // Vérifier que le bucket existe
       const bucketExists = await ensureBucketExists();
       if (!bucketExists) {
-        alert('Le bucket de stockage n\'est pas configuré. Veuillez créer le bucket "diligences-files" dans Supabase Storage.');
+        alert('Le bucket de stockage n\'est pas configuré. Veuillez créer le bucket "diligence-file" dans Supabase Storage.');
         return;
       }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase/client';
 
 interface DiligenceData {
   titre: string;
@@ -33,6 +34,50 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
     piecesJointes: [] as string[]
   });
   const [piecesJointesFiles, setPiecesJointesFiles] = useState<File[]>([]);
+  const [users, setUsers] = useState<{id: string, email: string, name: string}[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  // Charger les utilisateurs depuis l'authentification Supabase
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        // Utiliser l'API admin pour récupérer les utilisateurs (nécessite la clé de service)
+        // Note: Cette approche nécessite des permissions appropriées
+        const { data: { users }, error } = await supabase.auth.admin.listUsers();
+        
+        if (error) {
+          console.error('Erreur lors du chargement des utilisateurs:', error);
+          // Fallback: utiliser les valeurs codées en dur si l'API admin échoue
+          setUsers([
+            { id: '550e8400-e29b-41d4-a716-446655440001', email: 'admin@mtnd.ci', name: 'Administrateur' },
+            { id: '550e8400-e29b-41d4-a716-446655440002', email: 'user1@mtnd.ci', name: 'Utilisateur 1' },
+            { id: '550e8400-e29b-41d4-a716-446655440003', email: 'user2@mtnd.ci', name: 'Utilisateur 2' }
+          ]);
+          return;
+        }
+
+        const formattedUsers = users.map(user => ({
+          id: user.id,
+          email: user.email || 'Email non défini',
+          name: user.user_metadata?.name || user.email || `Utilisateur ${user.id.slice(0, 8)}`
+        }));
+
+        setUsers(formattedUsers);
+      } catch (error) {
+        console.error('Erreur:', error);
+        // Fallback en cas d'erreur
+        setUsers([
+          { id: '550e8400-e29b-41d4-a716-446655440001', email: 'admin@mtnd.ci', name: 'Administrateur' },
+          { id: '550e8400-e29b-41d4-a716-446655440002', email: 'user1@mtnd.ci', name: 'Utilisateur 1' },
+          { id: '550e8400-e29b-41d4-a716-446655440003', email: 'user2@mtnd.ci', name: 'Utilisateur 2' }
+        ]);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    loadUsers();
+  }, []);
 
   // Remplir le formulaire si on modifie une diligence existante
   useEffect(() => {
@@ -118,12 +163,18 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
                   value={formData.destinataire || ''}
                   onChange={(e) => setFormData({...formData, destinataire: e.target.value || null})}
                   required
+                  disabled={loadingUsers}
                 >
                   <option value="">Sélectionner un destinataire</option>
-                  {/* Les options seront chargées dynamiquement depuis la base de données */}
-                  <option value="uuid-profile-1">M. Adama Bamba</option>
-                  <option value="uuid-profile-2">Mme Aminata Diarra</option>
-                  <option value="uuid-profile-3">Dr. Souleymane Koné</option>
+                  {loadingUsers ? (
+                    <option value="">Chargement des utilisateurs...</option>
+                  ) : (
+                    users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

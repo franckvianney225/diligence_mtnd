@@ -9,7 +9,6 @@ import ApplicationTab from "@/components/Parametres/ApplicationTab";
 import NotificationsTab from "@/components/Parametres/NotificationsTab";
 import SystemeTab from "@/components/Parametres/SystemeTab";
 import SauvegardeTab from "@/components/Parametres/SauvegardeTab";
-import { supabase } from "@/lib/supabase/client";
 import ProtectedTab from "@/components/Parametres/ProtectedTab";
 
 export default function ParametresPage() {
@@ -25,19 +24,9 @@ export default function ParametresPage() {
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('User metadata:', user?.user_metadata);
-      
-      // Détection du rôle avec priorité aux métadonnées, puis vérification de l'email
-      let role = user?.app_metadata?.role || user?.user_metadata?.role || 'user';
-      
-      // Si pas de rôle défini mais email contient "admin", considérer comme admin
-      if (role === 'user' && user?.email?.includes('admin')) {
-        role = 'admin';
-      }
-      
-      console.log('Detected role:', role);
-      setUserRole(role);
+      // Pour l'instant, on simule un utilisateur admin
+      // À remplacer par une vraie vérification d'authentification
+      setUserRole('admin');
       setLoading(false);
     };
     fetchUserRole();

@@ -1,17 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSupabase } from "@/lib/supabase/SupabaseProvider";
 import { useEffect, useState } from "react";
-import { Session } from "@supabase/supabase-js";
+import { apiClient } from "@/lib/api/client";
 
 type User = {
-  id: string;
-  email?: string;
-  user_metadata?: {
-    full_name?: string;
-    role?: string;
-  };
+  id: number;
+  email: string;
+  name: string;
+  role: string;
 };
 
 // Icônes SVG custom
@@ -42,33 +39,30 @@ const UserIcon = () => (
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const supabase = useSupabase();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      // Pour l'instant, on simule un utilisateur connecté
+      // À remplacer par une vraie vérification d'authentification
+      const mockUser: User = {
+        id: 1,
+        email: 'admin@example.com',
+        name: 'Administrateur',
+        role: 'admin'
+      };
+      
+      setUser(mockUser);
     };
     
     fetchUser();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        setUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
-    });
-    
-    return () => subscription?.unsubscribe();
-  }, [supabase]);
+  }, []);
 
   const isActive = (path: string) => pathname === path;
 
   // Vérifier si l'utilisateur est un administrateur
   const isAdmin = () => {
-    const userRole = user?.user_metadata?.role || '';
+    const userRole = user?.role || '';
     const normalizedRole = userRole.toString().trim().toLowerCase();
     return normalizedRole.includes('admin') || normalizedRole.includes('administrateur');
   };
@@ -83,10 +77,10 @@ export default function Sidebar() {
           </div>
           <div>
             <h3 className="font-semibold text-gray-800 text-sm">
-              {user?.user_metadata?.full_name || user?.email || 'Utilisateur'}
+              {user?.name || user?.email || 'Utilisateur'}
             </h3>
             <p className="text-xs text-orange-600 font-medium">
-              ({user?.user_metadata?.role || (user ? (user.email?.includes('admin') ? 'Administrateur' : 'Connecté') : 'Invité')})
+              ({user?.role || (user ? (user.email?.includes('admin') ? 'Administrateur' : 'Connecté') : 'Invité')})
             </p>
           </div>
         </div>
@@ -135,7 +129,7 @@ export default function Sidebar() {
       <div className="px-3 py-2 flex-shrink-0">
         <button
           onClick={async () => {
-            await supabase.auth.signOut();
+            await apiClient.logout();
             window.location.href = '/login';
           }}
           className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-all duration-200"

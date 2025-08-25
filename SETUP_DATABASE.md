@@ -42,7 +42,7 @@ La table doit avoir RLS activé avec les politiques suivantes :
 
 ## 3. Création du bucket de stockage
 
-Suivez les instructions dans `SETUP_STORAGE.md` pour créer le bucket `diligences-files`.
+Suivez les instructions dans `SETUP_STORAGE.md` pour créer le bucket `diligence-file`.
 
 ## 4. Vérification de la configuration
 
@@ -50,7 +50,7 @@ Après configuration, testez que :
 
 1. ✅ La table `diligences` existe avec toutes les colonnes
 2. ✅ Les politiques RLS sont correctement configurées
-3. ✅ Le bucket `diligences-files` existe et est public
+3. ✅ Le bucket `diligence-file` existe et est public
 4. ✅ Les variables d'environnement sont correctes dans `.env.local`
 
 ## 5. Test de fonctionnement
@@ -72,7 +72,7 @@ Après configuration, testez que :
 - Vérifiez que les politiques permettent INSERT aux authenticated
 
 ### Erreur d'upload de fichiers
-- Le bucket `diligences-files` n'existe pas
+- Le bucket `diligence-file` n'existe pas
 - Vérifiez la configuration du bucket dans Supabase Storage
 
 ### Erreur de connexion à Supabase

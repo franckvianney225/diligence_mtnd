@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import type { AuthError } from "@supabase/supabase-js";
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -8,28 +7,23 @@ interface CreateUserModalProps {
   onCreate: (userData: {
     email: string;
     password: string;
-    full_name: string;
-    phone: string;
+    name: string;
     role: string;
   }) => Promise<void>;
   editingUser?: {
     id: string;
     email?: string;
-    user_metadata?: {
-      full_name?: string;
-      phone?: string;
-      role?: string;
-    };
+    name?: string;
+    role?: string;
   };
   isEditing?: boolean;
 }
 
 export default function CreateUserModal({ isOpen, onClose, onCreate, editingUser, isEditing = false }: CreateUserModalProps) {
   const [userData, setUserData] = useState({
-    full_name: "",
+    name: "",
     email: "",
-    phone: "",
-    role: "Utilisateur",
+    role: "user",
     password: ""
   });
 
@@ -37,10 +31,9 @@ export default function CreateUserModal({ isOpen, onClose, onCreate, editingUser
   useEffect(() => {
     if (isOpen) {
       setUserData({
-        full_name: editingUser?.user_metadata?.full_name || "",
+        name: editingUser?.name || "",
         email: editingUser?.email || "",
-        phone: editingUser?.user_metadata?.phone || "",
-        role: editingUser?.user_metadata?.role || "Utilisateur",
+        role: editingUser?.role || "user",
         password: "" // Touvider le mot de passe pour l'édition
       });
     }
@@ -57,15 +50,14 @@ export default function CreateUserModal({ isOpen, onClose, onCreate, editingUser
       await onCreate(userData);
       onClose();
       setUserData({
-        full_name: "",
+        name: "",
         email: "",
-        phone: "",
-        role: "Utilisateur",
+        role: "user",
         password: ""
       });
     } catch (err) {
-      const authError = err as AuthError;
-      setError(authError.message || "Erreur lors de la création");
+      const error = err as Error;
+      setError(error.message || "Erreur lors de la création");
     } finally {
       setLoading(false);
     }
@@ -100,8 +92,8 @@ export default function CreateUserModal({ isOpen, onClose, onCreate, editingUser
                   type="text"
                   required
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors text-gray-900"
-                  value={userData.full_name}
-                  onChange={(e) => setUserData({...userData, full_name: e.target.value})}
+                  value={userData.name}
+                  onChange={(e) => setUserData({...userData, name: e.target.value})}
                 />
               </div>
 
@@ -140,18 +132,6 @@ export default function CreateUserModal({ isOpen, onClose, onCreate, editingUser
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Téléphone
-                </label>
-                <input
-                  type="tel"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors text-gray-900"
-                  value={userData.phone}
-                  onChange={(e) => setUserData({...userData, phone: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Rôle
                 </label>
                 <select
@@ -159,8 +139,8 @@ export default function CreateUserModal({ isOpen, onClose, onCreate, editingUser
                   value={userData.role}
                   onChange={(e) => setUserData({...userData, role: e.target.value})}
                 >
-                  <option value="Administrateur">Administrateur</option>
-                  <option value="Utilisateur">Utilisateur</option>
+                  <option value="admin">Administrateur</option>
+                  <option value="user">Utilisateur</option>
                 </select>
               </div>
             </div>

@@ -1,34 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import CreateUserModal from "./CreateUserModal";
-import type { AuthError } from "@supabase/supabase-js";
 import DeleteModal from "../DeleteModal";
 
 interface User {
   id: string;
   email?: string;
-  user_metadata?: {
-    full_name?: string;
-    phone?: string;
-    role?: string;
-  };
+  name?: string;
+  role?: string;
+  created_at?: string;
 }
 
 export default function UtilisateursTab() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    throw new Error('Supabase configuration is missing');
-  }
-  
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
   const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -89,9 +72,9 @@ export default function UtilisateursTab() {
 
       setSuccess("Utilisateur supprimé avec succès");
       fetchUsers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting user:', error);
-      setError(error.message || "Erreur lors de la suppression de l'utilisateur");
+      setError(error instanceof Error ? error.message : "Erreur lors de la suppression de l'utilisateur");
     } finally {
       setDeleteModalOpen(false);
       setUserToDelete(null);
@@ -106,8 +89,7 @@ export default function UtilisateursTab() {
   const handleCreateUser = async (userData: {
     email: string;
     password: string;
-    full_name: string;
-    phone: string;
+    name: string;
     role: string;
   }) => {
     setLoading(true);
@@ -115,24 +97,23 @@ export default function UtilisateursTab() {
     setSuccess("");
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
-            full_name: userData.full_name,
-            phone: userData.phone,
-            role: userData.role
-          }
-        }
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
       });
 
-      if (signUpError) throw signUpError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur lors de la création de l'utilisateur");
+      }
+
       setSuccess("Utilisateur créé avec succès");
       fetchUsers();
     } catch (error: unknown) {
-      const authError = error as AuthError;
-      setError(authError.message || "Erreur lors de la création de l'utilisateur");
+      setError(error instanceof Error ? error.message : "Erreur lors de la création de l'utilisateur");
     } finally {
       setLoading(false);
     }
@@ -170,15 +151,15 @@ export default function UtilisateursTab() {
               <tbody>
                 {users.map((user) => (
                   <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="p-3 text-gray-900">{user.user_metadata?.full_name || 'N/A'}</td>
+                    <td className="p-3 text-gray-900">{user.name || 'N/A'}</td>
                     <td className="p-3 text-gray-900">{user.email}</td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded-full text-xs border ${
-                        user.user_metadata?.role === 'Administrateur'
+                        user.role === 'admin'
                           ? 'bg-red-50 text-red-700 border-red-200'
                           : 'bg-blue-50 text-blue-700 border-blue-200'
                       }`}>
-                        {user.user_metadata?.role || 'Utilisateur'}
+                        {user.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
                       </span>
                     </td>
                     <td className="p-3">
@@ -224,7 +205,7 @@ export default function UtilisateursTab() {
           setUserToDelete(null);
         }}
         onConfirm={handleDeleteUser}
-        itemName={userToDelete?.user_metadata?.full_name || userToDelete?.email || "cet utilisateur"}
+        itemName={userToDelete?.name || userToDelete?.email || "cet utilisateur"}
         itemType="utilisateur"
       />
     </>

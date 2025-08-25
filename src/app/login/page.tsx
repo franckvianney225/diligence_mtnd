@@ -1,11 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AuthError } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase/client";
+import { apiClient } from "@/lib/api/client";
 
 export default function LoginPage() {
-  const _router = useRouter();
+  const router = useRouter();
   const [credentials, setCredentials] = useState({
     email: "",
     password: ""
@@ -34,34 +33,18 @@ export default function LoginPage() {
     }
 
     try {
-      // Connexion
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password
-      });
+      // Connexion avec le nouveau backend
+      const response = await apiClient.login(credentials.email, credentials.password);
 
-      if (signInError) {
-        console.error("Erreur de connexion:", signInError);
-        
-        if (signInError.message.includes('Email not confirmed')) {
-          setError("Veuillez confirmer votre email avant de vous connecter");
-        } else if (signInError.message.includes('Invalid login credentials')) {
-          setError("Email ou mot de passe incorrect");
-        } else {
-          setError(signInError.message || "Erreur de connexion");
-        }
-        return;
+      if (response.success) {
+        // Redirection vers la page d'accueil
+        router.push('/');
+      } else {
+        setError(response.message || "Erreur de connexion");
       }
-
-      // Vérification de la session
-      if (!data?.user) {
-        setError("Erreur lors de la création de la session");
-      }
-      // La redirection sera gérée par SupabaseProvider
     } catch (error) {
       console.error("Erreur:", error);
-      const authError = error as AuthError;
-      setError(authError.message || "Une erreur est survenue");
+      setError(error instanceof Error ? error.message : "Une erreur est survenue");
     } finally {
       setIsLoading(false);
     }

@@ -1,10 +1,36 @@
 # Configuration du Stockage Supabase
 
-## Création du Bucket "diligences-files"
+## Création du Bucket "diligence-file"
 
-Pour que l'upload des fichiers fonctionne correctement, vous devez créer un bucket dans Supabase Storage :
+Pour que l'upload des fichiers fonctionne correctement, vous devez créer un bucket dans Supabase Storage. Deux méthodes sont disponibles :
 
-### Étapes à suivre :
+### Méthode 1: Automatique (Recommandée)
+
+Cette méthode utilise un script qui crée automatiquement le bucket via l'API Supabase.
+
+#### Prérequis :
+1. Obtenez votre clé de service depuis le tableau de bord Supabase
+   - Allez dans Settings → API → Service Role Key
+   - Copiez la clé de service
+
+2. Configurez la variable d'environnement :
+```bash
+export SUPABASE_SERVICE_ROLE_KEY="votre_clé_service"
+```
+
+3. Installez les dépendances (si ce n'est pas déjà fait) :
+```bash
+npm install
+```
+
+#### Création du bucket :
+```bash
+npm run create-bucket
+```
+
+### Méthode 2: Manuellement via l'interface
+
+Si vous préférez créer le bucket manuellement :
 
 1. **Allez sur le tableau de bord Supabase**
    - Ouvrez https://supabase.com/dashboard
@@ -18,7 +44,7 @@ Pour que l'upload des fichiers fonctionne correctement, vous devez créer un buc
 
 4. **Créez un nouveau bucket**
    - Cliquez sur le bouton "New Bucket"
-   - Nom : `diligences-files`
+   - Nom : `diligence-file`
    - Public : ✅ **Cocher cette option** (bucket public pour permettre à tous d'uploader)
    - File size limit : `52428800` (50MB)
    - Allowed MIME types : Laisser vide ou restreindre aux types souhaités

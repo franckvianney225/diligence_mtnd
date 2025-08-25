@@ -2,9 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { apiClient } from "@/lib/api/client";
 
 interface Echeance {
   id: number;
@@ -14,6 +12,13 @@ interface Echeance {
   priorite: string;
   progression: number;
   type?: string;
+}
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
 }
 
 export default function DashboardPage() {
@@ -26,24 +31,29 @@ export default function DashboardPage() {
     // Fonction pour vérifier l'utilisateur
     const checkUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        console.log("Vérification utilisateur dashboard:", { user, error });
+        // Vérifier si l'utilisateur est connecté via le token
+        const token = apiClient.getToken();
         
-        if (error) {
-          console.error("Erreur lors de la vérification:", error);
-        }
-        
-        if (user) {
-          setUser(user);
-        } else {
-          // Vérifier si on est déjà sur la page de login pour éviter les boucles
+        if (!token) {
+          // Rediriger vers la page de login si pas de token
           if (window.location.pathname !== '/login') {
-            // Petite attente pour laisser le temps à la session de s'établir
-            setTimeout(() => {
-              router.push('/login');
-            }, 100);
+            router.push('/login');
           }
+          setLoading(false);
+          return;
         }
+
+        // Pour l'instant, on simule un utilisateur connecté
+        // À remplacer par une vraie vérification d'authentification
+        const mockUser: User = {
+          id: 1,
+          email: 'admin@example.com',
+          name: 'Administrateur',
+          role: 'admin'
+        };
+        
+        setUser(mockUser);
+        
       } catch (error) {
         console.error("Erreur:", error);
         router.push('/login');
@@ -52,29 +62,8 @@ export default function DashboardPage() {
       }
     };
 
-    // Écouter les changements d'état d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state change:", { event, session });
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        setUser(session.user);
-        setLoading(false);
-      } else if (event === 'SIGNED_OUT') {
-        // Seulement rediriger si c'est une déconnexion explicite
-        setUser(null);
-        router.push('/login');
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        setUser(session.user);
-      }
-      // Ne pas rediriger pour les autres événements comme 'INITIAL_SESSION'
-    });
-
     // Vérification initiale
     checkUser();
-
-    return () => {
-      subscription?.unsubscribe();
-    };
   }, [router]);
 
   if (loading) {
@@ -95,7 +84,7 @@ export default function DashboardPage() {
   }
 
   // Déterminer le rôle de l'utilisateur
-  const userRole = user?.user_metadata?.role || (user?.email?.includes('admin') ? 'admin' : 'user');
+  const userRole = user?.role || (user?.email?.includes('admin') ? 'admin' : 'user');
   const isAdmin = userRole === 'admin' || userRole === 'Administrateur';
 
   // Statistiques personnalisées selon le rôle
@@ -152,7 +141,7 @@ export default function DashboardPage() {
     { nom: "Amadou Diallo", role: "Legal Expert", diligences: 15, taux: 88, avatar: "AD" },
     { nom: "Fatou Camara", role: "IT Auditor", diligences: 6, taux: 90, avatar: "FC" }
   ] : [
-    { nom: user?.user_metadata?.full_name || user?.email?.split('@')[0], role: "Votre performance", diligences: statistiques.diligencesTerminees, taux: statistiques.tauxCompletion, avatar: "VO" }
+    { nom: user?.name || user?.email?.split('@')[0], role: "Votre performance", diligences: statistiques.diligencesTerminees, taux: statistiques.tauxCompletion, avatar: "VO" }
   ];
 
   const getTypeIcon = (type: string) => {
@@ -207,7 +196,7 @@ export default function DashboardPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Tableau de bord des diligences</h1>
           <p className="text-gray-600">
-            {`Bienvenue ${user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Utilisateur'}`}
+            {`Bienvenue ${user?.name || user?.email?.split('@')[0] || 'Utilisateur'}`}
           </p>
         </div>
 
