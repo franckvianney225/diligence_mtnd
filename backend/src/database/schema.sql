@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS diligences (
     description TEXT NOT NULL,
     priorite TEXT DEFAULT 'Moyenne' CHECK(priorite IN ('Haute', 'Moyenne', 'Basse')),
     statut TEXT DEFAULT 'Planifié' CHECK(statut IN ('Planifié', 'En cours', 'Terminé', 'En retard')),
-    destinataire TEXT,
+    destinataire TEXT DEFAULT '[]',
     piecesjointes TEXT DEFAULT '[]',
     progression INTEGER DEFAULT 0,
     assigned_to INTEGER,

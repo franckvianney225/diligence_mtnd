@@ -18,7 +18,7 @@ interface DiligenceData {
   description: string;
   priorite: string;
   statut: string;
-  destinataire: string | null;
+  destinataire: string[];
   piecesJointes: string[];
 }
 
@@ -37,7 +37,7 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
     description: '',
     priorite: 'Moyenne',
     statut: 'Planifié',
-    destinataire: null as string | null,
+    destinataire: [] as string[],
     piecesJointes: [] as string[]
   });
   const [piecesJointesFiles, setPiecesJointesFiles] = useState<File[]>([]);
@@ -84,7 +84,9 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
         description: initialData.description || '',
         priorite: initialData.priorite || 'Moyenne',
         statut: initialData.statut || 'Planifié',
-        destinataire: initialData.destinataire || null,
+        destinataire: Array.isArray(initialData.destinataire)
+          ? initialData.destinataire
+          : initialData.destinataire ? [initialData.destinataire] : [],
         piecesJointes: initialData.piecesJointes || []
       });
     }
@@ -100,7 +102,15 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
       piecesJointesFiles: piecesJointesFiles // Objets File pour l'upload
     };
 
-    onSubmit(diligenceData);
+    // Convertir les destinataires en tableau si ce n'est pas déjà le cas
+    const finalData = {
+      ...diligenceData,
+      destinataire: Array.isArray(diligenceData.destinataire)
+        ? diligenceData.destinataire
+        : diligenceData.destinataire ? [diligenceData.destinataire] : []
+    };
+    
+    onSubmit(finalData as DiligenceData & { piecesJointesFiles: File[] });
   };
 
   const getPiecesJointes = (piecesJointes: string[] | string): string[] => {
@@ -217,18 +227,22 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
                       <svg className="w-4 h-4 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
-                      Destinataire *
+                      Destinataires *
                     </span>
                   </label>
                   <div className="relative">
                     <select
-                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300 bg-white text-gray-900 appearance-none shadow-sm hover:shadow-md"
-                      value={formData.destinataire || ''}
-                      onChange={(e) => setFormData({...formData, destinataire: e.target.value || null})}
+                      multiple
+                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300 bg-white text-gray-900 appearance-none shadow-sm hover:shadow-md min-h-32"
+                      value={formData.destinataire}
+                      onChange={(e) => {
+                        const selectedOptions = Array.from(e.target.selectedOptions);
+                        const selectedValues = selectedOptions.map(option => option.value);
+                        setFormData({...formData, destinataire: selectedValues});
+                      }}
                       required
                       disabled={loadingUsers}
                     >
-                      <option value="">Sélectionner un destinataire</option>
                       {loadingUsers ? (
                         <option value="">Chargement des utilisateurs...</option>
                       ) : (
@@ -239,9 +253,14 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
                         ))
                       )}
                     </select>
-                    <svg className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs destinataires
+                    </div>
                   </div>
                 </div>
 

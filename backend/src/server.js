@@ -473,7 +473,7 @@ app.put('/api/diligences/:id', async (req, res) => {
        SET titre = ?, directiondestinataire = ?, datedebut = ?, datefin = ?, description = ?,
            priorite = ?, statut = ?, destinataire = ?, piecesjointes = ?, progression = ?, updated_at = datetime('now')
        WHERE id = ?`,
-      [titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, JSON.stringify(piecesjointes || []), progression, id]
+      [titre, directiondestinataire, datedebut, datefin, description, priorite, statut, JSON.stringify(destinataire || []), JSON.stringify(piecesjointes || []), progression, id]
     );
 
     res.json({

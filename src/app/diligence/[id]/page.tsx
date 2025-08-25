@@ -15,7 +15,7 @@ interface Diligence {
   description: string;
   priorite: "Haute" | "Moyenne" | "Basse";
   statut: "Planifié" | "En cours" | "Terminé" | "En retard";
-  destinataire: string | null;
+  destinataire: string | string[] | null;
   piecesjointes: string[];
   progression: number;
   created_at: string;
@@ -190,8 +190,18 @@ export default function DiligenceDetailPage() {
                   <p className="text-gray-800">{diligence.directiondestinataire}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Destinataire</label>
-                  <p className="text-gray-800">{diligence.destinataire || "Non spécifié"}</p>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Destinataires</label>
+                  <div className="space-y-1">
+                    {Array.isArray(diligence.destinataire) ? (
+                      diligence.destinataire.map((dest, index) => (
+                        <p key={index} className="text-gray-800 text-sm">
+                          • {dest}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-gray-800">{diligence.destinataire || "Non spécifié"}</p>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Période</label>
