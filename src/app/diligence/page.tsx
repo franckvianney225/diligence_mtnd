@@ -7,6 +7,43 @@ import DiligenceForm from "@/components/DiligenceForm";
 import DeleteModal from "@/components/DeleteModal";
 import { apiClient } from "@/lib/api/client";
 
+// Styles personnalisés pour les animations
+const styles = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes bounceIn {
+    0% { opacity: 0; transform: scale(0.3); }
+    50% { opacity: 1; transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slide-in-up {
+    animation: slideInUp 0.6s ease-out;
+  }
+
+  .animate-bounce-in {
+    animation: bounceIn 0.8s ease-out;
+  }
+
+  .stagger-1 { animation-delay: 0.1s; }
+  .stagger-2 { animation-delay: 0.2s; }
+  .stagger-3 { animation-delay: 0.3s; }
+  .stagger-4 { animation-delay: 0.4s; }
+`;
+
 interface Diligence {
   id: string;
   titre: string;
@@ -72,7 +109,7 @@ export default function DiligencePage() {
       // Charger depuis le cache local si disponible et récent (moins de 5 minutes)
       const cachedData = localStorage.getItem('diligencesCache');
       const cachedTime = localStorage.getItem('diligencesCacheTime');
-      
+
       if (cachedData && cachedTime) {
         const cacheAge = Date.now() - parseInt(cachedTime);
         if (cacheAge < 300000) { // 5 minutes de cache
@@ -98,7 +135,7 @@ export default function DiligencePage() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -111,7 +148,7 @@ export default function DiligencePage() {
       const diligencesData = response || [];
       setAllDiligences(diligencesData);
       setLastLoadTime(Date.now());
-      
+
       // Sauvegarder dans le cache local
       if (typeof window !== 'undefined') {
         localStorage.setItem('diligencesCache', JSON.stringify(diligencesData));
@@ -199,14 +236,14 @@ export default function DiligencePage() {
 
   // Fonction de filtrage
   const filteredDiligences = allDiligences.filter(diligence => {
-    const matchSearch = !filters.search || 
+    const matchSearch = !filters.search ||
       diligence.titre.toLowerCase().includes(filters.search.toLowerCase()) ||
       diligence.directiondestinataire.toLowerCase().includes(filters.search.toLowerCase()) ||
       (diligence.destinataire && diligence.destinataire.toLowerCase().includes(filters.search.toLowerCase()));
-    
+
     const matchStatut = !filters.statut || diligence.statut === filters.statut;
     const matchPriorite = !filters.priorite || diligence.priorite === filters.priorite;
-    
+
     return matchSearch && matchStatut && matchPriorite;
   });
 
@@ -268,7 +305,7 @@ export default function DiligencePage() {
     const getPageNumbers = () => {
       const pages = [];
       const maxVisible = 5;
-      
+
       if (totalPages <= maxVisible) {
         for (let i = 1; i <= totalPages; i++) {
           pages.push(i);
@@ -296,15 +333,15 @@ export default function DiligencePage() {
           pages.push(totalPages);
         }
       }
-      
+
       return pages;
     };
 
     if (totalPages <= 1) return null;
 
     return (
-      <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg">
-        <div className="flex items-center text-sm text-gray-700">
+      <div className="flex flex-col sm:flex-row items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="flex items-center text-sm text-gray-700 mb-4 sm:mb-0">
           <span>
             Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} résultats
           </span>
@@ -323,37 +360,37 @@ export default function DiligencePage() {
             <option value={24}>24 par page</option>
           </select>
         </div>
-        
+
         <div className="flex items-center space-x-1">
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           >
             Précédent
           </button>
-          
+
           {getPageNumbers().map((page, index) => (
             <button
               key={index}
               onClick={() => typeof page === 'number' && handlePageChange(page)}
               disabled={page === '...'}
-              className={`px-3 py-2 text-sm font-medium border rounded-md ${
+              className={`px-3 py-2 text-sm font-medium border rounded-md transition-all duration-200 ${
                 page === currentPage
-                  ? 'text-white bg-orange-500 border-orange-500'
+                  ? 'text-white bg-orange-500 border-orange-500 shadow-md'
                   : page === '...'
                   ? 'text-gray-400 bg-white border-gray-300 cursor-default'
-                  : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+                  : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 hover:shadow-sm'
               }`}
             >
               {page}
             </button>
           ))}
-          
+
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           >
             Suivant
           </button>
@@ -364,12 +401,20 @@ export default function DiligencePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-orange-50">
         <Sidebar />
         <div className="pl-64 p-8 min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Chargement des diligences...</p>
+            <div className="relative">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-200 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-500 border-t-transparent absolute top-0 left-1/2 transform -translate-x-1/2"></div>
+            </div>
+            <p className="text-gray-600 font-medium">Chargement des diligences...</p>
+            <div className="mt-2 flex justify-center space-x-1">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
           </div>
         </div>
       </div>
@@ -377,45 +422,109 @@ export default function DiligencePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-orange-50">
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       <Sidebar />
-      <div className="pl-64 p-8 min-h-screen">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Gestion des Diligences
-            </h1>
-            <p className="text-gray-600">Suivi et gestion des missions de diligence gouvernementales</p>
+      <div className="pl-64 p-8 min-h-screen animate-fade-in">
+        {/* Header avec statistiques */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start mb-6">
+            <div className="mb-6 lg:mb-0">
+              <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
+                Gestion des Diligences
+              </h1>
+              <p className="text-gray-600 text-base lg:text-lg">Suivi et gestion des missions de diligence gouvernementales</p>
+            </div>
+            <button
+              onClick={handleCreateDiligence}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 lg:px-8 py-3 lg:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 animate-bounce-in"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Nouvelle Diligence</span>
+            </button>
           </div>
-          <button
-            onClick={handleCreateDiligence}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>Nouvelle Diligence</span>
-          </button>
+
+          {/* Statistiques */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-300 animate-slide-in-up stagger-1">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-blue-100">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total</p>
+                  <p className="text-2xl font-bold text-gray-900">{allDiligences.length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-300 animate-slide-in-up stagger-2">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-blue-100">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">En cours</p>
+                  <p className="text-2xl font-bold text-blue-600">{allDiligences.filter(d => d.statut === 'En cours').length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-300 animate-slide-in-up stagger-3">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-green-100">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Terminées</p>
+                  <p className="text-2xl font-bold text-green-600">{allDiligences.filter(d => d.statut === 'Terminé').length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-300 animate-slide-in-up stagger-4">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-red-100">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">En retard</p>
+                  <p className="text-2xl font-bold text-red-600">{allDiligences.filter(d => d.statut === 'En retard').length}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Filtres et contrôles */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200 animate-slide-in-up">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Rechercher</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Titre, direction, destinataire..."
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors" 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
-              <select 
+              <select
                 value={filters.statut}
                 onChange={(e) => handleFilterChange('statut', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
               >
                 <option value="">Tous les statuts</option>
                 <option value="En cours">En cours</option>
@@ -426,10 +535,10 @@ export default function DiligencePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Priorité</label>
-              <select 
+              <select
                 value={filters.priorite}
                 onChange={(e) => handleFilterChange('priorite', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
               >
                 <option value="">Toutes priorités</option>
                 <option value="Haute">Haute</option>
@@ -439,28 +548,28 @@ export default function DiligencePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Date début</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={filters.dateDebut}
                 onChange={(e) => handleFilterChange('dateDebut', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors" 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Date fin</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={filters.dateFin}
                 onChange={(e) => handleFilterChange('dateFin', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-colors" 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300"
               />
             </div>
           </div>
-          
-          <div className="flex justify-between items-center">
+
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <button
               onClick={resetFilters}
-              className="text-orange-600 hover:text-orange-700 font-medium text-sm"
+              className="text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors duration-200"
             >
               Réinitialiser les filtres
             </button>
@@ -471,10 +580,10 @@ export default function DiligencePage() {
                     setViewMode('table');
                     localStorage.setItem('diligenceViewMode', 'table');
                   }}
-                  className={`p-2 rounded-lg ${
+                  className={`p-2 rounded-lg transition-all duration-200 ${
                     viewMode === 'table'
-                      ? 'bg-orange-100 text-orange-600'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-orange-100 text-orange-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -486,10 +595,10 @@ export default function DiligencePage() {
                     setViewMode('grid');
                     localStorage.setItem('diligenceViewMode', 'grid');
                   }}
-                  className={`p-2 rounded-lg ${
+                  className={`p-2 rounded-lg transition-all duration-200 ${
                     viewMode === 'grid'
-                      ? 'bg-orange-100 text-orange-600'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-orange-100 text-orange-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -502,34 +611,34 @@ export default function DiligencePage() {
         </div>
 
         {/* Table des diligences */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-slide-in-up">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Titre
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Direction
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Dates
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Statut
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Priorité
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedDiligences.map((diligence) => (
-                  <tr key={diligence.id} className="hover:bg-gray-50">
+              <tbody className="bg-white divide-y divide-gray-100">
+                {paginatedDiligences.map((diligence, index) => (
+                  <tr key={diligence.id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-transparent transition-all duration-200 animate-slide-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{diligence.titre}</div>
                       <div className="text-sm text-gray-500">{diligence.destinataire || 'Non spécifié'}</div>
@@ -543,34 +652,79 @@ export default function DiligencePage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatutColor(diligence.statut)}`}>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatutColor(diligence.statut)}`}>
+                        {diligence.statut === 'En cours' && (
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        )}
+                        {diligence.statut === 'Terminé' && (
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                        {diligence.statut === 'Planifié' && (
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                        {diligence.statut === 'En retard' && (
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
                         {diligence.statut}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPrioriteColor(diligence.priorite)}`}>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPrioriteColor(diligence.priorite)}`}>
+                        {diligence.priorite === 'Haute' && (
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                          </svg>
+                        )}
+                        {diligence.priorite === 'Moyenne' && (
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                          </svg>
+                        )}
+                        {diligence.priorite === 'Basse' && (
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                        )}
                         {diligence.priorite}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                         <Link
                           href={`/diligence/${diligence.id}`}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-blue-600 hover:text-blue-900 transition-colors duration-200 flex items-center space-x-1"
                         >
-                          Voir
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          <span className="hidden sm:inline">Voir</span>
                         </Link>
                         <button
                           onClick={() => handleEditDiligence(diligence)}
-                          className="text-orange-600 hover:text-orange-900"
+                          className="text-orange-600 hover:text-orange-900 transition-colors duration-200 flex items-center space-x-1"
                         >
-                          Modifier
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          <span className="hidden sm:inline">Modifier</span>
                         </button>
                         <button
                           onClick={() => handleDeleteDiligence(diligence)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-red-600 hover:text-red-900 transition-colors duration-200 flex items-center space-x-1"
                         >
-                          Supprimer
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          <span className="hidden sm:inline">Supprimer</span>
                         </button>
                       </div>
                     </td>
@@ -582,19 +736,22 @@ export default function DiligencePage() {
         </div>
 
         {totalItems === 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center border border-gray-200 mt-6">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune diligence</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Commencez par créer votre première diligence.
-            </p>
-            <div className="mt-6">
+          <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200 mt-6 animate-slide-in-up">
+            <div className="max-w-sm mx-auto">
+              <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucune diligence</h3>
+              <p className="text-gray-600 mb-6">
+                Commencez par créer votre première diligence.
+              </p>
               <button
                 onClick={handleCreateDiligence}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-300"
               >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
                 Créer une diligence
               </button>
             </div>

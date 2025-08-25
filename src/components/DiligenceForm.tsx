@@ -103,6 +103,23 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
     onSubmit(diligenceData);
   };
 
+  const getPiecesJointes = (piecesJointes: string[] | string): string[] => {
+    if (Array.isArray(piecesJointes)) {
+      return piecesJointes;
+    }
+    
+    try {
+      if (typeof piecesJointes === 'string') {
+        const parsed = JSON.parse(piecesJointes);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Erreur lors du parsing des pièces jointes:', error);
+      return [];
+    }
+  };
+
   const isEditing = !!initialData;
 
   return (
@@ -263,9 +280,9 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
                   📄 Ajouter des fichiers PDF
                 </label>
                 
-                {formData.piecesJointes.length > 0 && (
+                {getPiecesJointes(formData.piecesJointes).length > 0 && (
                   <div className="mt-2 space-y-2">
-                    {formData.piecesJointes.map((fileName, index) => (
+                    {getPiecesJointes(formData.piecesJointes).map((fileName, index) => (
                       <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                         <span className="text-sm text-gray-700 truncate max-w-xs">
                           {fileName}
