@@ -118,6 +118,11 @@ class ApiClient {
   isAuthenticated() {
     return !!this.getToken();
   }
+
+  // Récupérer les informations de l'utilisateur connecté
+  async getCurrentUser() {
+    return this.request('/auth/me');
+  }
 }
 
 // Instance singleton

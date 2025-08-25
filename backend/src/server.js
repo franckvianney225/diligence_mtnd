@@ -278,12 +278,65 @@ app.post('/api/auth/login', async (req, res) => {
     }
   } catch (error) {
     console.error('Erreur lors de la connexion:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Erreur interne du serveur' 
+    res.status(500).json({
+      success: false,
+      message: 'Erreur interne du serveur'
     });
   }
-});
+  });
+  
+  // Middleware pour vérifier l'authentification JWT
+  const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token d\'accès requis'
+      });
+    }
+  
+    try {
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || 'fallback-secret-key-change-in-production'
+      );
+      req.user = decoded;
+      next();
+    } catch (error) {
+      return res.status(403).json({
+        success: false,
+        message: 'Token invalide ou expiré'
+      });
+    }
+  };
+  
+  // Route pour obtenir les informations de l'utilisateur connecté
+  app.get('/api/auth/me', authenticateToken, async (req, res) => {
+    try {
+      const database = await getDatabase();
+      const user = await database.get(
+        'SELECT id, email, name, role FROM users WHERE id = ? AND is_active = 1',
+        [req.user.id]
+      );
+  
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+  
+      res.json(user);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des informations utilisateur:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur'
+      });
+    }
+  });
 
 // Route pour obtenir les diligences
 app.get('/api/diligences', async (req, res) => {
@@ -299,6 +352,120 @@ app.get('/api/diligences', async (req, res) => {
     res.json(diligences);
   } catch (error) {
     console.error('Erreur lors de la récupération des diligences:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// Route pour créer une nouvelle diligence
+app.post('/api/diligences', async (req, res) => {
+  const { titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression } = req.body;
+  
+  if (!titre || !directiondestinataire || !datedebut || !datefin || !description) {
+    return res.status(400).json({
+      error: 'Tous les champs obligatoires sont requis'
+    });
+  }
+
+  try {
+    const database = await getDatabase();
+    
+    const result = await database.run(
+      `INSERT INTO diligences (titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [titre, directiondestinataire, datedebut, datefin, description, priorite || 'Moyenne', statut || 'Planifié', destinataire, JSON.stringify(piecesjointes || []), progression || 0]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Diligence créée avec succès',
+      diligenceId: result.lastID
+    });
+  } catch (error) {
+    console.error('Erreur lors de la création de la diligence:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// Route pour modifier une diligence
+app.put('/api/diligences/:id', async (req, res) => {
+  const { id } = req.params;
+  const { titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression } = req.body;
+  
+  if (!titre || !directiondestinataire || !datedebut || !datefin || !description) {
+    return res.status(400).json({
+      error: 'Tous les champs obligatoires sont requis'
+    });
+  }
+
+  try {
+    const database = await getDatabase();
+    
+    // Vérifier si la diligence existe
+    const diligence = await database.get(
+      'SELECT id FROM diligences WHERE id = ?',
+      [id]
+    );
+    
+    if (!diligence) {
+      return res.status(404).json({
+        error: 'Diligence non trouvée'
+      });
+    }
+
+    await database.run(
+      `UPDATE diligences
+       SET titre = ?, directiondestinataire = ?, datedebut = ?, datefin = ?, description = ?,
+           priorite = ?, statut = ?, destinataire = ?, piecesjointes = ?, progression = ?, updated_at = datetime('now')
+       WHERE id = ?`,
+      [titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, JSON.stringify(piecesjointes || []), progression, id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Diligence modifiée avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la modification de la diligence:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// Route pour supprimer une diligence
+app.delete('/api/diligences/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  if (!id) {
+    return res.status(400).json({
+      error: 'ID diligence requis'
+    });
+  }
+
+  try {
+    const database = await getDatabase();
+    
+    // Vérifier si la diligence existe
+    const diligence = await database.get(
+      'SELECT id FROM diligences WHERE id = ?',
+      [id]
+    );
+    
+    if (!diligence) {
+      return res.status(404).json({
+        error: 'Diligence non trouvée'
+      });
+    }
+
+    await database.run(
+      'DELETE FROM diligences WHERE id = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Diligence supprimée avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la diligence:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 });

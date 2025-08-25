@@ -1,7 +1,14 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { apiClient } from '@/lib/api/client';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role?: string;
+}
 
 interface DiligenceData {
   titre: string;
@@ -34,42 +41,29 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
     piecesJointes: [] as string[]
   });
   const [piecesJointesFiles, setPiecesJointesFiles] = useState<File[]>([]);
-  const [users, setUsers] = useState<{id: string, email: string, name: string}[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
-  // Charger les utilisateurs depuis l'authentification Supabase
+  // Charger les utilisateurs depuis notre API
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        // Utiliser l'API admin pour récupérer les utilisateurs (nécessite la clé de service)
-        // Note: Cette approche nécessite des permissions appropriées
-        const { data: { users }, error } = await supabase.auth.admin.listUsers();
-        
-        if (error) {
-          console.error('Erreur lors du chargement des utilisateurs:', error);
-          // Fallback: utiliser les valeurs codées en dur si l'API admin échoue
-          setUsers([
-            { id: '550e8400-e29b-41d4-a716-446655440001', email: 'admin@mtnd.ci', name: 'Administrateur' },
-            { id: '550e8400-e29b-41d4-a716-446655440002', email: 'user1@mtnd.ci', name: 'Utilisateur 1' },
-            { id: '550e8400-e29b-41d4-a716-446655440003', email: 'user2@mtnd.ci', name: 'Utilisateur 2' }
-          ]);
-          return;
-        }
-
-        const formattedUsers = users.map(user => ({
-          id: user.id,
+        const response = await apiClient.getUsers();
+        const formattedUsers = response.map((user: User) => ({
+          id: user.id.toString(),
           email: user.email || 'Email non défini',
-          name: user.user_metadata?.name || user.email || `Utilisateur ${user.id.slice(0, 8)}`
+          name: user.name || user.email || `Utilisateur ${user.id}`,
+          role: user.role || 'user'
         }));
 
         setUsers(formattedUsers);
       } catch (error) {
-        console.error('Erreur:', error);
+        console.error('Erreur lors du chargement des utilisateurs:', error);
         // Fallback en cas d'erreur
         setUsers([
-          { id: '550e8400-e29b-41d4-a716-446655440001', email: 'admin@mtnd.ci', name: 'Administrateur' },
-          { id: '550e8400-e29b-41d4-a716-446655440002', email: 'user1@mtnd.ci', name: 'Utilisateur 1' },
-          { id: '550e8400-e29b-41d4-a716-446655440003', email: 'user2@mtnd.ci', name: 'Utilisateur 2' }
+          { id: '1', email: 'admin@example.com', name: 'Administrateur', role: 'admin' },
+          { id: '2', email: 'user1@example.com', name: 'Utilisateur 1', role: 'user' },
+          { id: '3', email: 'user2@example.com', name: 'Utilisateur 2', role: 'user' }
         ]);
       } finally {
         setLoadingUsers(false);

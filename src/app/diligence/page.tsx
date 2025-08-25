@@ -6,8 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import DiligenceForm from "@/components/DiligenceForm";
 import DeleteModal from "@/components/DeleteModal";
 import DetailsDiligence from "@/components/Diligence/DetailsDiligence";
-import { supabase } from "@/lib/supabase/client";
-import { uploadFile, deleteFiles, ensureBucketExists, getPublicFileUrl, BUCKET_NAME } from "@/lib/supabase/storage";
+import { apiClient } from "@/lib/api/client";
 
 interface Diligence {
   id: string;
@@ -110,16 +109,8 @@ export default function DiligencePage() {
   const loadDiligences = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('diligences')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      const diligencesData = data || [];
+      const response = await apiClient.getDiligences();
+      const diligencesData = response || [];
       setAllDiligences(diligencesData);
       setLastLoadTime(Date.now());
       
@@ -155,15 +146,8 @@ export default function DiligencePage() {
   const confirmDelete = async () => {
     if (diligenceToDelete) {
       try {
-        // Supprimer uniquement la diligence de la base de données (ignorer les fichiers)
-        const { error } = await supabase
-          .from('diligences')
-          .delete()
-          .eq('id', diligenceToDelete.id);
-
-        if (error) {
-          throw error;
-        }
+        // Supprimer la diligence via l'API
+        await apiClient.deleteDiligence(diligenceToDelete.id);
 
         setAllDiligences(prev => prev.filter(d => d.id !== diligenceToDelete.id));
         setShowDeleteModal(false);
@@ -179,14 +163,7 @@ export default function DiligencePage() {
 
   const handleFormSubmit = async (formData: DiligenceFormData) => {
     try {
-      // Vérifier que le bucket existe
-      const bucketExists = await ensureBucketExists();
-      if (!bucketExists) {
-        alert('Le bucket de stockage n\'est pas configuré. Veuillez créer le bucket "diligence-file" dans Supabase Storage.');
-        return;
-      }
-
-      // Préparer les données pour Supabase
+      // Préparer les données pour l'API
       const diligenceData = {
         titre: formData.titre,
         directiondestinataire: formData.directionDestinataire,
@@ -200,60 +177,12 @@ export default function DiligencePage() {
         progression: 0
       };
 
-      let diligenceId: string;
-
       if (editingDiligence) {
         // MODIFICATION - Mettre à jour la diligence
-        diligenceId = editingDiligence.id;
-        const { error } = await supabase
-          .from('diligences')
-          .update(diligenceData)
-          .eq('id', editingDiligence.id);
-
-        if (error) {
-          throw error;
-        }
-
+        await apiClient.updateDiligence(editingDiligence.id, diligenceData);
       } else {
-        // CRÉATION - Créer la diligence et récupérer l'ID
-        const { data, error } = await supabase
-          .from('diligences')
-          .insert(diligenceData)
-          .select('id')
-          .single();
-
-        if (error) {
-          throw error;
-        }
-
-        diligenceId = data.id;
-      }
-
-      // Upload des fichiers joints si présents
-      if (formData.piecesJointesFiles && formData.piecesJointesFiles.length > 0) {
-        const uploadedFilePaths: string[] = [];
-        
-        for (const file of formData.piecesJointesFiles) {
-          try {
-            const filePath = await uploadFile(diligenceId, file);
-            uploadedFilePaths.push(filePath);
-          } catch (uploadError) {
-            console.error('Erreur lors de l\'upload du fichier:', uploadError);
-            // Continuer avec les autres fichiers même si un échoue
-          }
-        }
-
-        // Mettre à jour la diligence avec les chemins des fichiers uploadés
-        if (uploadedFilePaths.length > 0) {
-          const { error: updateError } = await supabase
-            .from('diligences')
-            .update({ piecesjointes: uploadedFilePaths })
-            .eq('id', diligenceId);
-
-          if (updateError) {
-            console.error('Erreur lors de la mise à jour des fichiers joints:', updateError);
-          }
-        }
+        // CRÉATION - Créer la diligence
+        await apiClient.createDiligence(diligenceData);
       }
 
       // Recharger les diligences pour avoir les données à jour

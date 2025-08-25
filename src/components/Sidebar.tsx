@@ -43,16 +43,17 @@ export default function Sidebar() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      // Pour l'instant, on simule un utilisateur connecté
-      // À remplacer par une vraie vérification d'authentification
-      const mockUser: User = {
-        id: 1,
-        email: 'admin@example.com',
-        name: 'Administrateur',
-        role: 'admin'
-      };
-      
-      setUser(mockUser);
+      try {
+        // Récupérer les informations de l'utilisateur connecté depuis l'API
+        const response = await apiClient.getCurrentUser();
+        if (response) {
+          setUser(response);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des informations utilisateur:', error);
+        // En cas d'erreur, on peut rediriger vers la page de login
+        window.location.href = '/login';
+      }
     };
     
     fetchUser();
