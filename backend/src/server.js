@@ -394,17 +394,30 @@ app.post('/api/auth/login', async (req, res) => {
     }
   });
 
-// Route pour obtenir les diligences
-app.get('/api/diligences', async (req, res) => {
+// Route pour obtenir les diligences (avec authentification)
+app.get('/api/diligences', authenticateToken, async (req, res) => {
   try {
     const database = await getDatabase();
-    const diligences = await database.all(`
+    
+    // Pour les administrateurs, retourner toutes les diligences
+    // Pour les utilisateurs normaux, retourner seulement leurs diligences assignées ou créées
+    let query = `
       SELECT d.*, u.name as assigned_name, creator.name as created_by_name
       FROM diligences d
       LEFT JOIN users u ON d.assigned_to = u.id
       LEFT JOIN users creator ON d.created_by = creator.id
-      ORDER BY d.created_at DESC
-    `);
+    `;
+    
+    let queryParams = [];
+    
+    if (req.user.role !== 'admin') {
+      query += ` WHERE d.assigned_to = ? OR d.created_by = ?`;
+      queryParams = [req.user.id, req.user.id];
+    }
+    
+    query += ` ORDER BY d.created_at DESC`;
+    
+    const diligences = await database.all(query, queryParams);
     res.json(diligences);
   } catch (error) {
     console.error('Erreur lors de la récupération des diligences:', error);
@@ -412,9 +425,9 @@ app.get('/api/diligences', async (req, res) => {
   }
 });
 
-// Route pour créer une nouvelle diligence
-app.post('/api/diligences', async (req, res) => {
-  const { titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression } = req.body;
+// Route pour créer une nouvelle diligence (avec authentification)
+app.post('/api/diligences', authenticateToken, async (req, res) => {
+  const { titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression, assigned_to } = req.body;
   
   if (!titre || !directiondestinataire || !datedebut || !datefin || !description) {
     return res.status(400).json({
@@ -426,9 +439,9 @@ app.post('/api/diligences', async (req, res) => {
     const database = await getDatabase();
     
     const result = await database.run(
-      `INSERT INTO diligences (titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-      [titre, directiondestinataire, datedebut, datefin, description, priorite || 'Moyenne', statut || 'Planifié', destinataire, JSON.stringify(piecesjointes || []), progression || 0]
+      `INSERT INTO diligences (titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression, assigned_to, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [titre, directiondestinataire, datedebut, datefin, description, priorite || 'Moyenne', statut || 'Planifié', destinataire, JSON.stringify(piecesjointes || []), progression || 0, assigned_to || null, req.user.id]
     );
 
     res.status(201).json({
@@ -442,10 +455,10 @@ app.post('/api/diligences', async (req, res) => {
   }
 });
 
-// Route pour modifier une diligence
-app.put('/api/diligences/:id', async (req, res) => {
+// Route pour modifier une diligence (avec authentification et vérification des permissions)
+app.put('/api/diligences/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression } = req.body;
+  const { titre, directiondestinataire, datedebut, datefin, description, priorite, statut, destinataire, piecesjointes, progression, assigned_to } = req.body;
   
   if (!titre || !directiondestinataire || !datedebut || !datefin || !description) {
     return res.status(400).json({
@@ -456,9 +469,9 @@ app.put('/api/diligences/:id', async (req, res) => {
   try {
     const database = await getDatabase();
     
-    // Vérifier si la diligence existe
+    // Vérifier si la diligence existe et si l'utilisateur a les permissions
     const diligence = await database.get(
-      'SELECT id FROM diligences WHERE id = ?',
+      'SELECT id, created_by, assigned_to FROM diligences WHERE id = ?',
       [id]
     );
     
@@ -468,12 +481,22 @@ app.put('/api/diligences/:id', async (req, res) => {
       });
     }
 
+    // Vérifier les permissions : admin ou créateur de la diligence
+    if (req.user.role !== 'admin' && diligence.created_by !== req.user.id) {
+      return res.status(403).json({
+        error: 'Permission refusée : vous ne pouvez modifier que vos propres diligences'
+      });
+    }
+
     await database.run(
       `UPDATE diligences
        SET titre = ?, directiondestinataire = ?, datedebut = ?, datefin = ?, description = ?,
-           priorite = ?, statut = ?, destinataire = ?, piecesjointes = ?, progression = ?, updated_at = datetime('now')
+           priorite = ?, statut = ?, destinataire = ?, piecesjointes = ?, progression = ?,
+           assigned_to = ?, updated_at = datetime('now')
        WHERE id = ?`,
-      [titre, directiondestinataire, datedebut, datefin, description, priorite, statut, JSON.stringify(destinataire || []), JSON.stringify(piecesjointes || []), progression, id]
+      [titre, directiondestinataire, datedebut, datefin, description, priorite, statut,
+       JSON.stringify(destinataire || []), JSON.stringify(piecesjointes || []), progression,
+       assigned_to || null, id]
     );
 
     res.json({
@@ -486,8 +509,8 @@ app.put('/api/diligences/:id', async (req, res) => {
   }
 });
 
-// Route pour supprimer une diligence
-app.delete('/api/diligences/:id', async (req, res) => {
+// Route pour supprimer une diligence (avec authentification et vérification des permissions)
+app.delete('/api/diligences/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   
   if (!id) {
@@ -499,15 +522,22 @@ app.delete('/api/diligences/:id', async (req, res) => {
   try {
     const database = await getDatabase();
     
-    // Vérifier si la diligence existe
+    // Vérifier si la diligence existe et si l'utilisateur a les permissions
     const diligence = await database.get(
-      'SELECT id FROM diligences WHERE id = ?',
+      'SELECT id, created_by FROM diligences WHERE id = ?',
       [id]
     );
     
     if (!diligence) {
       return res.status(404).json({
         error: 'Diligence non trouvée'
+      });
+    }
+
+    // Vérifier les permissions : admin ou créateur de la diligence
+    if (req.user.role !== 'admin' && diligence.created_by !== req.user.id) {
+      return res.status(403).json({
+        error: 'Permission refusée : vous ne pouvez supprimer que vos propres diligences'
       });
     }
 
