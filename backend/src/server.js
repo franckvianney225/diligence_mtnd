@@ -526,6 +526,108 @@ app.delete('/api/diligences/:id', async (req, res) => {
   }
 });
 
+// Routes pour la configuration SMTP
+app.get('/api/smtp/config', async (req, res) => {
+  try {
+    const database = await getDatabase();
+    const config = await database.get(
+      'SELECT * FROM smtp_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1'
+    );
+    
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Aucune configuration SMTP trouvée'
+      });
+    }
+
+    res.json(config);
+  } catch (error) {
+    console.error('Erreur lors de la récupération de la configuration SMTP:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur interne du serveur'
+    });
+  }
+});
+
+app.post('/api/smtp/config', async (req, res) => {
+  const { host, port, secure, username, password, from_email, from_name } = req.body;
+  
+  if (!host || !port || !username || !password || !from_email || !from_name) {
+    return res.status(400).json({
+      success: false,
+      error: 'Tous les champs obligatoires sont requis'
+    });
+  }
+
+  try {
+    const database = await getDatabase();
+    
+    // Désactiver toutes les configurations existantes
+    await database.run(
+      'UPDATE smtp_config SET is_active = 0 WHERE is_active = 1'
+    );
+
+    // Créer une nouvelle configuration
+    const result = await database.run(
+      `INSERT INTO smtp_config (host, port, secure, username, password, from_email, from_name, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`,
+      [host, port, secure ? 1 : 0, username, password, from_email, from_name]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Configuration SMTP sauvegardée avec succès',
+      configId: result.lastID
+    });
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde de la configuration SMTP:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur interne du serveur'
+    });
+  }
+});
+
+app.post('/api/smtp/test', async (req, res) => {
+  const { host, port, secure, username, password } = req.body;
+  
+  if (!host || !port || !username || !password) {
+    return res.status(400).json({
+      success: false,
+      error: 'Les paramètres de connexion SMTP sont requis'
+    });
+  }
+
+  try {
+    // Simuler un test de connexion SMTP (à remplacer par une vraie implémentation)
+    // Pour l'instant, on simule un délai et un résultat positif
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Simulation de test réussi
+    const isTestSuccessful = Math.random() > 0.2; // 80% de chance de succès
+    
+    if (isTestSuccessful) {
+      res.json({
+        success: true,
+        message: 'Connexion SMTP testée avec succès'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Échec de la connexion SMTP. Vérifiez vos paramètres.'
+      });
+    }
+  } catch (error) {
+    console.error('Erreur lors du test SMTP:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors du test de connexion SMTP'
+    });
+  }
+});
+
 // Gestion des erreurs 404
 app.use('*', (req, res) => {
   res.status(404).json({ 

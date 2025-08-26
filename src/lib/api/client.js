@@ -131,6 +131,25 @@ class ApiClient {
       body: JSON.stringify(profileData),
     });
   }
+
+  // Configuration SMTP
+  async getSmtpConfig() {
+    return this.request('/smtp/config');
+  }
+
+  async saveSmtpConfig(configData) {
+    return this.request('/smtp/config', {
+      method: 'POST',
+      body: JSON.stringify(configData),
+    });
+  }
+
+  async testSmtpConnection(configData) {
+    return this.request('/smtp/test', {
+      method: 'POST',
+      body: JSON.stringify(configData),
+    });
+  }
 }
 
 // Instance singleton
