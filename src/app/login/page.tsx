@@ -38,8 +38,10 @@ export default function LoginPage() {
       const response = await apiClient.login(credentials.email, credentials.password);
 
       if (response.success) {
+        console.log("Connexion réussie, redirection vers /");
         // Redirection vers la page d'accueil
         router.push('/');
+        router.refresh(); // Force le rafraîchissement pour mettre à jour l'état d'authentification
       } else {
         setError(response.message || "Erreur de connexion");
       }

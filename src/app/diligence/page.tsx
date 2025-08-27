@@ -169,6 +169,8 @@ export default function DiligencePage() {
   };
 
   const handleEditDiligence = (diligence: Diligence) => {
+    console.log("Données de la diligence à modifier:", diligence);
+    console.log("Destinataire de la diligence:", diligence.destinataire, "Type:", typeof diligence.destinataire);
     setEditingDiligence(diligence);
     setShowForm(true);
   };

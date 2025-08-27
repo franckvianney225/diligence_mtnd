@@ -1,6 +1,6 @@
 // Client API pour communiquer avec le backend Node.js
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 class ApiClient {
   constructor() {
@@ -62,7 +62,7 @@ class ApiClient {
 
   // Authentication
   async login(email, password) {
-    const response = await this.request('/auth/login', {
+    const response = await this.request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -81,37 +81,37 @@ class ApiClient {
 
   // Users
   async getUsers() {
-    return this.request('/users');
+    return this.request('/api/users');
   }
 
   // Diligences
   async getDiligences() {
-    return this.request('/diligences');
+    return this.request('/api/diligences');
   }
 
   async createDiligence(diligenceData) {
-    return this.request('/diligences', {
+    return this.request('/api/diligences', {
       method: 'POST',
       body: JSON.stringify(diligenceData),
     });
   }
 
   async updateDiligence(id, diligenceData) {
-    return this.request(`/diligences/${id}`, {
+    return this.request(`/api/diligences/${id}`, {
       method: 'PUT',
       body: JSON.stringify(diligenceData),
     });
   }
 
   async deleteDiligence(id) {
-    return this.request(`/diligences/${id}`, {
+    return this.request(`/api/diligences/${id}`, {
       method: 'DELETE',
     });
   }
 
   // Health check
   async healthCheck() {
-    return this.request('/health');
+    return this.request('/api/health');
   }
 
   // Vérifier si l'utilisateur est connecté
@@ -121,12 +121,12 @@ class ApiClient {
 
   // Récupérer les informations de l'utilisateur connecté
   async getCurrentUser() {
-    return this.request('/auth/me');
+    return this.request('/api/auth/me');
   }
 
   // Mettre à jour le profil utilisateur
   async updateProfile(profileData) {
-    return this.request('/auth/profile', {
+    return this.request('/api/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
@@ -134,18 +134,18 @@ class ApiClient {
 
   // Configuration SMTP
   async getSmtpConfig() {
-    return this.request('/smtp/config');
+    return this.request('/api/smtp/config');
   }
 
   async saveSmtpConfig(configData) {
-    return this.request('/smtp/config', {
+    return this.request('/api/smtp/config', {
       method: 'POST',
       body: JSON.stringify(configData),
     });
   }
 
   async testSmtpConnection(configData) {
-    return this.request('/smtp/test', {
+    return this.request('/api/smtp/test', {
       method: 'POST',
       body: JSON.stringify(configData),
     });

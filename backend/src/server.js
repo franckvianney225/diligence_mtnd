@@ -17,13 +17,64 @@ dotenv.config({ path: path.join(__dirname, '../../.env.local') });
 const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
 
-// Middleware
+// Middleware CORS avec configuration étendue pour Chrome
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: function (origin, callback) {
+    // Autoriser les requêtes sans origine (comme Postman, curl, et certaines requêtes de navigateurs)
+    if (!origin) return callback(null, true);
+    
+    // Liste des origines autorisées (incluant les variations pour Chrome)
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3001',
+      'http://[::1]:3000', // IPv6 localhost
+      'http://[::1]:3001'  // IPv6 localhost
+    ];
+    
+    // Ajouter l'URL du frontend depuis les variables d'environnement si définie
+    if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+    
+    // Chrome peut utiliser différentes variations de localhost
+    const isChromeLocalhost = origin.includes('localhost') ||
+                             origin.includes('127.0.0.1') ||
+                             origin.includes('[::1]');
+    
+    if (allowedOrigins.includes(origin) || isChromeLocalhost) {
+      callback(null, true);
+    } else {
+      console.warn('Origine non autorisée bloquée par CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Authorization'],
+  maxAge: 86400 // 24 heures de cache pour les pré-vols OPTIONS
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Middleware pour gérer les problèmes de cookies avec Chrome
+app.use((req, res, next) => {
+  // Configurer les headers pour les cookies cross-origin
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Headers supplémentaires pour Chrome
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  
+  // Pour les requêtes preflight OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 // Initialiser la base de données
 let db;
@@ -411,13 +462,26 @@ app.get('/api/diligences', authenticateToken, async (req, res) => {
     let queryParams = [];
     
     if (req.user.role !== 'admin') {
-      query += ` WHERE d.assigned_to = ? OR d.created_by = ?`;
-      queryParams = [req.user.id, req.user.id];
+      console.log("Filtrage pour utilisateur non-admin:", req.user.id, req.user.role);
+      query += ` WHERE d.assigned_to = ? OR d.created_by = ? OR d.destinataire LIKE ?`;
+      queryParams = [req.user.id, req.user.id, `%${req.user.id}%`];
+      console.log("Requête SQL:", query);
+      console.log("Paramètres:", queryParams);
     }
     
     query += ` ORDER BY d.created_at DESC`;
     
+    console.log("Requête finale:", query);
     const diligences = await database.all(query, queryParams);
+    console.log("Diligences retournées:", diligences.length);
+    console.log("Exemple de diligence:", diligences[0] ? {
+      id: diligences[0].id,
+      titre: diligences[0].titre,
+      destinataire: diligences[0].destinataire,
+      assigned_to: diligences[0].assigned_to,
+      created_by: diligences[0].created_by
+    } : 'Aucune diligence');
+    
     res.json(diligences);
   } catch (error) {
     console.error('Erreur lors de la récupération des diligences:', error);
@@ -481,10 +545,14 @@ app.put('/api/diligences/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Vérifier les permissions : admin ou créateur de la diligence
-    if (req.user.role !== 'admin' && diligence.created_by !== req.user.id) {
+    // Vérifier les permissions : admin, créateur de la diligence, ou assigné à la diligence
+    const isAssigned = diligence.assigned_to === req.user.id;
+    const isCreator = diligence.created_by === req.user.id;
+    const isDestinataire = diligence.destinataire && diligence.destinataire.includes(req.user.id.toString());
+    
+    if (req.user.role !== 'admin' && !isCreator && !isAssigned && !isDestinataire) {
       return res.status(403).json({
-        error: 'Permission refusée : vous ne pouvez modifier que vos propres diligences'
+        error: 'Permission refusée : vous ne pouvez modifier que les diligences qui vous sont assignées'
       });
     }
 
@@ -534,7 +602,8 @@ app.delete('/api/diligences/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Vérifier les permissions : admin ou créateur de la diligence
+    // Vérifier les permissions : admin ou créateur de la diligence seulement pour la suppression
+    // Les destinataires peuvent voir mais pas supprimer
     if (req.user.role !== 'admin' && diligence.created_by !== req.user.id) {
       return res.status(403).json({
         error: 'Permission refusée : vous ne pouvez supprimer que vos propres diligences'

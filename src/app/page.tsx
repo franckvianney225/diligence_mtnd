@@ -62,15 +62,21 @@ export default function DashboardPage() {
         }
 
         try {
+          console.log("Tentative de récupération des données utilisateur...");
           const userData = await apiClient.getCurrentUser();
+          console.log("Données utilisateur reçues:", userData);
+          
           if (userData) {
-            setUser({
+            const userObj = {
               id: userData.id || 1,
               email: userData.email || '',
               name: userData.name || userData.email?.split('@')[0] || 'Utilisateur',
               role: userData.role || 'user'
-            });
+            };
+            console.log("Utilisateur défini:", userObj);
+            setUser(userObj);
           } else {
+            console.warn("Aucune donnée utilisateur reçue");
             throw new Error('Aucune donnée utilisateur');
           }
         } catch (apiError) {
@@ -81,6 +87,7 @@ export default function DashboardPage() {
             name: 'Administrateur',
             role: 'admin'
           };
+          console.log("Utilisation de l'utilisateur mock:", mockUser);
           setUser(mockUser);
         }
 

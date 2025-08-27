@@ -18,7 +18,7 @@ interface DiligenceData {
   description: string;
   priorite: string;
   statut: string;
-  destinataire: string[];
+  destinataire: string | null; // Le backend attend string | null, pas string[]
   piecesJointes: string[];
 }
 
@@ -43,6 +43,7 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
   const [piecesJointesFiles, setPiecesJointesFiles] = useState<File[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Charger les utilisateurs depuis notre API
   useEffect(() => {
@@ -73,9 +74,42 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
     loadUsers();
   }, []);
 
+  // Fonction pour traiter les destinataires depuis différents formats
+  const parseDestinataires = (destinataireValue: string | string[] | number | null | undefined): string[] => {
+    if (Array.isArray(destinataireValue)) {
+      return destinataireValue;
+    }
+
+    if (typeof destinataireValue === 'string') {
+      const trimmedValue = destinataireValue.trim();
+      if (!trimmedValue) return [];
+
+      try {
+        // Essayer de parser comme JSON
+        const parsed = JSON.parse(trimmedValue);
+        return Array.isArray(parsed) ? parsed : [destinataireValue];
+      } catch (e) {
+        // Si ce n'est pas du JSON, traiter comme une liste séparée par des virgules
+        return trimmedValue.split(',').map((id: string) => id.trim()).filter((id: string) => id);
+      }
+    }
+
+    if (typeof destinataireValue === 'number') {
+      return [destinataireValue.toString()];
+    }
+
+    return [];
+  };
+
   // Remplir le formulaire si on modifie une diligence existante
   useEffect(() => {
     if (initialData) {
+      console.log("InitialData destinataire:", initialData.destinataire, "Type:", typeof initialData.destinataire);
+
+      const destinataireArray = parseDestinataires(initialData.destinataire);
+
+      console.log("Destinataire array final:", destinataireArray);
+
       setFormData({
         titre: initialData.titre || '',
         directionDestinataire: initialData.directionDestinataire || '',
@@ -84,16 +118,21 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
         description: initialData.description || '',
         priorite: initialData.priorite || 'Moyenne',
         statut: initialData.statut || 'Planifié',
-        destinataire: Array.isArray(initialData.destinataire)
-          ? initialData.destinataire
-          : initialData.destinataire ? [initialData.destinataire] : [],
-        piecesJointes: initialData.piecesJointes || []
+        destinataire: destinataireArray,
+        piecesJointes: getPiecesJointes(initialData.piecesJointes || [])
       });
     }
   }, [initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validation: vérifier qu'au moins un destinataire est sélectionné
+    if (!formData.destinataire || formData.destinataire.length === 0) {
+      alert('Veuillez sélectionner au moins un destinataire.');
+      setIsDropdownOpen(true); // Ouvrir la liste déroulante pour permettre la sélection
+      return;
+    }
 
     // Créer un objet avec les données du formulaire
     const diligenceData = {
@@ -102,14 +141,16 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
       piecesJointesFiles: piecesJointesFiles // Objets File pour l'upload
     };
 
-    // Convertir les destinataires en tableau si ce n'est pas déjà le cas
+    // Convertir les destinataires en string pour l'envoi au backend
     const finalData = {
       ...diligenceData,
-      destinataire: Array.isArray(diligenceData.destinataire)
-        ? diligenceData.destinataire
-        : diligenceData.destinataire ? [diligenceData.destinataire] : []
+      destinataire: formData.destinataire.length > 0
+        ? formData.destinataire.join(',')
+        : null
     };
-    
+
+    console.log('Données envoyées:', finalData); // Debug: voir les données envoyées
+
     onSubmit(finalData as DiligenceData & { piecesJointesFiles: File[] });
   };
 
@@ -228,40 +269,140 @@ export default function DiligenceForm({ onClose, onSubmit, initialData }: Dilige
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                       Destinataires *
+                      {formData.destinataire.length === 0 && (
+                        <span className="ml-2 text-xs text-red-500 font-normal">(Au moins un destinataire requis)</span>
+                      )}
                     </span>
                   </label>
+
+                  {/* Selected recipients display */}
+                  {formData.destinataire.length > 0 && (
+                    <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+                      <div className="flex flex-wrap gap-2">
+                        {formData.destinataire.map(recipientId => {
+                          const user = users.find(u => u.id === recipientId);
+                          return user ? (
+                            <div key={recipientId} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded-full border border-orange-200">
+                              <span className="font-medium">{user.name}</span>
+                              <span className="mx-1 text-orange-600">•</span>
+                              <span className="text-xs">{user.email}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newRecipients = formData.destinataire.filter(id => id !== recipientId);
+                                  setFormData({...formData, destinataire: newRecipients});
+                                }}
+                                className="ml-2 text-orange-600 hover:text-orange-800 transition-colors duration-200"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="relative">
-                    <select
-                      multiple
-                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all duration-300 bg-white text-gray-900 appearance-none shadow-sm hover:shadow-md min-h-32"
-                      value={formData.destinataire}
-                      onChange={(e) => {
-                        const selectedOptions = Array.from(e.target.selectedOptions);
-                        const selectedValues = selectedOptions.map(option => option.value);
-                        setFormData({...formData, destinataire: selectedValues});
-                      }}
-                      required
+                    {/* Trigger button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                       disabled={loadingUsers}
+                      className={`w-full p-4 border rounded-xl focus:ring-2 transition-all duration-300 bg-white text-gray-900 shadow-sm hover:shadow-md text-left flex items-center justify-between ${
+                        formData.destinataire.length === 0
+                          ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+                          : 'border-gray-300 focus:ring-orange-200 focus:border-orange-400'
+                      }`}
                     >
-                      {loadingUsers ? (
-                        <option value="">Chargement des utilisateurs...</option>
-                      ) : (
-                        users.map(user => (
-                          <option key={user.id} value={user.id}>
-                            {user.name} ({user.email})
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className={formData.destinataire.length === 0 ? "text-gray-500" : "text-gray-900"}>
+                        {loadingUsers
+                          ? "Chargement des utilisateurs..."
+                          : formData.destinataire.length === 0
+                            ? "Sélectionner des destinataires"
+                            : `${formData.destinataire.length} destinataire(s) sélectionné(s)`
+                        }
+                      </span>
+                      <svg
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs destinataires
-                    </div>
+                    </button>
+
+                    {/* Dropdown menu */}
+                    {isDropdownOpen && !loadingUsers && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                        {users.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            Aucun utilisateur disponible
+                          </div>
+                        ) : (
+                          users.map(user => (
+                            <div
+                              key={user.id}
+                              onClick={() => {
+                                const isSelected = formData.destinataire.includes(user.id);
+                                let newRecipients;
+                                if (isSelected) {
+                                  newRecipients = formData.destinataire.filter(id => id !== user.id);
+                                } else {
+                                  newRecipients = [...formData.destinataire, user.id];
+                                }
+                                setFormData({...formData, destinataire: newRecipients});
+                              }}
+                              className="flex items-center p-3 hover:bg-orange-50 cursor-pointer transition-colors duration-200 border-b border-gray-100 last:border-b-0"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.destinataire.includes(user.id)}
+                                onChange={() => {}}
+                                className="mr-3 accent-orange-500 pointer-events-none"
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">{user.name}</div>
+                                <div className="text-sm text-gray-500">{user.email}</div>
+                              </div>
+                              {formData.destinataire.includes(user.id) && (
+                                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    {formData.destinataire.length > 0 && (
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({...formData, destinataire: []});
+                            setIsDropdownOpen(false);
+                          }}
+                          className="text-xs text-orange-600 hover:text-orange-800 transition-colors duration-200 underline"
+                        >
+                          Tout désélectionner
+                        </button>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Click outside to close */}
+                  {isDropdownOpen && (
+                    <div
+                      className="fixed inset-0 z-5"
+                      onClick={() => setIsDropdownOpen(false)}
+                    />
+                  )}
                 </div>
 
                 <div>
